@@ -52,12 +52,12 @@ export default function Carte() {
     let annule = false;
     (async () => {
       try {
-        const [fr, mr] = await Promise.all([fetch(`data/forets-${ZONE}.json`), fetch(`data/meteo-${ZONE}.json`)]);
+        const [fr, mr] = await Promise.all([fetch(`/data/forets-${ZONE}.json`), fetch(`/data/meteo-${ZONE}.json`)]);
         if (!fr.ok || !mr.ok) throw new Error("absent");
         const f: Forets = await fr.json();
         const m: Meteo = await mr.json();
         const img = new Image();
-        img.src = `data/forets-${ZONE}.png`;
+        img.src = `/data/forets-${ZONE}.png`;
         await img.decode();
         const c = document.createElement("canvas");
         c.width = f.width; c.height = f.height;
@@ -183,7 +183,7 @@ export default function Carte() {
           Estimation calculée à partir du type de forêt (IGN), de la pluie des 4 à 14 derniers jours, de la température et de la saison de {esp.fr.toLowerCase()} ({esp.f.s?.toLowerCase()}). Ce n&apos;est pas une observation de terrain.{maj ? ` Météo mise à jour le ${maj}.` : ""}
         </p>
         <p className="note">Non affichées (espèces de prairies, de jardins ou cultivées) : {horsForet.join(", ")}.</p>
-        <a className="btn btn-ghost" href={`fiche.html?id=${esp.id}`}>Voir la fiche</a>
+        <a className="btn btn-ghost" href={`/fiche?id=${esp.id}`}>Voir la fiche</a>
       </section>
     </Shell>
   );

@@ -5,7 +5,7 @@ type Entry = { f: string[]; j: number };
 const data = raw as Record<string, Entry>;
 
 export interface Tuile { url: string; i: number; n: number }
-const base = (id: string) => `ph/${id}/`;
+const base = (id: string) => `/ph/${id}/`;
 export const aPhotos = (id: string) => id in data;
 export const vignette = (id: string) => (id in data ? `${base(id)}t.jpg` : null);
 export const photosFiche = (id: string) =>

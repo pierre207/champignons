@@ -20,9 +20,9 @@ export default function Shell({ tab, children }: { tab?: Tab; children: ReactNod
       </div>
       {children}
       <nav className="tabbar" aria-label="Navigation principale">
-        <a href="index.html" aria-current={tab === "especes" ? "page" : undefined}><IconMush />Espèces</a>
-        <a href="carte.html" aria-current={tab === "carte" ? "page" : undefined}><IconMap />Carte</a>
-        <a href="jeu.html" aria-current={tab === "jeu" ? "page" : undefined}><IconGame />Jeu</a>
+        <a href="/" aria-current={tab === "especes" ? "page" : undefined}><IconMush />Espèces</a>
+        <a href="/carte" aria-current={tab === "carte" ? "page" : undefined}><IconMap />Carte</a>
+        <a href="/jeu" aria-current={tab === "jeu" ? "page" : undefined}><IconGame />Jeu</a>
       </nav>
     </div>
   );
