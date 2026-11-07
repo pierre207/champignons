@@ -18,14 +18,14 @@ export const poids = (p: ParamCarte, classe: number) => (classe === 0 ? 0 : p.ho
 // Températures moyennes journalières (°C) : en dessous de min ou au-dessus de max, pas de pousse
 export const TEMP: Record<Profil, [number, number, number, number]> = {
   ete: [10, 14, 22, 28],
-  automne: [4, 8, 16, 22],
+  automne: [2, 6, 15, 21],
   printemps: [5, 9, 16, 22],
   hiver: [1, 4, 12, 18],
 };
 // Pluie cumulée (mm) entre 4 et 14 jours avant le jour considéré
 export const PLUIE: Record<Profil, [number, number]> = {
   ete: [15, 50],
-  automne: [15, 45],
+  automne: [10, 35],
   printemps: [10, 35],
   hiver: [10, 35],
 };
