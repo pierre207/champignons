@@ -11,17 +11,9 @@ import { PALIERS, dessiner, grilleMeteo, indice, type Forets, type Meteo, type M
 const ZONE = "alsace";
 const NOMS_CLASSES = ["Hors forêt", "Chênes", "Hêtre", "Châtaignier", "Autres feuillus", "Peupliers, robiniers", "Pins", "Sapin, épicéa", "Douglas, mélèze", "Forêt mixte"];
 
-const STYLE = {
-  version: 8 as const,
-  sources: {
-    ign: {
-      type: "raster" as const,
-      tiles: ["https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/png&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}"],
-      tileSize: 256, maxzoom: 19, attribution: "© IGN Plan IGN · BD Forêt V2 · Météo Open-Meteo",
-    },
-  },
-  layers: [{ id: "ign", type: "raster" as const, source: "ign", paint: { "raster-brightness-max": 0.55, "raster-saturation": -0.6, "raster-contrast": 0.1 } }],
-};
+// Fond OpenFreeMap (style « Liberty », données OpenStreetMap), gratuit et sans clé
+const STYLE = "https://tiles.openfreemap.org/styles/liberty";
+const CREDITS = "BD Forêt V2 © IGN · Météo Open-Meteo";
 
 type Etat = "chargement" | "pret" | "sans-donnees";
 
@@ -79,7 +71,7 @@ export default function Carte() {
       if (annule || !boite.current) return;
       map = new maplibregl.Map({
         container: boite.current, style: STYLE, center: [7.35, 48.15], zoom: 8.3,
-        minZoom: 7, maxZoom: 15, attributionControl: { compact: true },
+        minZoom: 7, maxZoom: 15, attributionControl: { compact: true, customAttribution: CREDITS },
       });
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
       map.on("load", () => { carte.current = map!; setPret(true); });
@@ -110,7 +102,8 @@ export default function Carte() {
     if (map.getLayer("pousse")) map.removeLayer("pousse");
     if (map.getSource("pousse")) map.removeSource("pousse");
     map.addSource("pousse", { type: "canvas", canvas, animate: false, coordinates: [[x0, y1], [x1, y1], [x1, y0], [x0, y0]] });
-    map.addLayer({ id: "pousse", type: "raster", source: "pousse", paint: { "raster-opacity": 0.9, "raster-resampling": mode === "carreaux" ? "nearest" : "linear" } });
+    const etiquettes = map.getStyle().layers.find((l) => l.type === "symbol")?.id;
+    map.addLayer({ id: "pousse", type: "raster", source: "pousse", paint: { "raster-opacity": 0.85, "raster-resampling": mode === "carreaux" ? "nearest" : "linear" } }, etiquettes);
   }, [pret, grilles, jour, mode, param]);
 
   const changerMode = (m: Mode) => { setMode(m); try { localStorage.setItem("carte-mode", m); } catch {} };
