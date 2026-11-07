@@ -123,7 +123,7 @@ export default function Jeu() {
                   {q.answer.fr} : {cat.court.toLowerCase()}{q.answer.mortel ? ", mortel" : ""}.{q.answer.f.r ? ` ${q.answer.f.r}` : ""}
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <a className="btn btn-ghost" href={`fiche.html?id=${q.answer.id}`}>Voir la fiche</a>
+                  <a className="btn btn-ghost" href={`/fiche?id=${q.answer.id}`}>Voir la fiche</a>
                   <button className="btn" onClick={suivante}>{n >= TOTAL ? "Voir le score" : "Question suivante"}</button>
                 </div>
               </>

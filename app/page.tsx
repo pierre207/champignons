@@ -60,7 +60,7 @@ export default function Liste() {
       <main className="list">
         {items.length === 0 && <p className="empty">Aucune espèce ne correspond.</p>}
         {items.map((e) => (
-          <a key={e.id} className="row" href={`fiche.html?id=${e.id}`}>
+          <a key={e.id} className="row" href={`/fiche?id=${e.id}`}>
             <div className="thumb" aria-hidden="true">
               {vignette(e.id) ? <img src={vignette(e.id)!} alt="" loading="lazy" /> : <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#6e7a73" strokeWidth="1.6"><path d="M4 11a8 6 0 0 1 16 0z" /><path d="M10 11v7a2 2 0 0 0 4 0v-7" /></svg>}
             </div>

@@ -19,7 +19,7 @@ export default function Fiche() {
   }, []);
 
   if (e === undefined) return <Shell tab="especes"><p className="empty">Chargement…</p></Shell>;
-  if (e === null) return <Shell tab="especes"><p className="empty">Espèce introuvable. <a href="index.html">Retour à la liste</a></p></Shell>;
+  if (e === null) return <Shell tab="especes"><p className="empty">Espèce introuvable. <a href="/">Retour à la liste</a></p></Shell>;
 
   const cat = CATS.find((c) => c.key === e.cat)!;
   const photos = photosFiche(e.id);
@@ -29,7 +29,7 @@ export default function Fiche() {
   return (
     <Shell tab="especes">
       <div className="topbar">
-        <a className="icon-btn" href={`index.html?cat=${e.cat}`} aria-label="Retour à la liste">
+        <a className="icon-btn" href={`/?cat=${e.cat}`} aria-label="Retour à la liste">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#eceFea" strokeWidth="2" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
         </a>
         <span className="mono">Fiche {String(index).padStart(3, "0")} / {especes.length}</span>
@@ -92,7 +92,7 @@ export default function Fiche() {
         )}
 
         {e.cat === "comestible" && (
-          <a className="btn" href={`carte.html?id=${e.id}`}>
+          <a className="btn" href={`/carte?id=${e.id}`}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1a1206" strokeWidth="2" aria-hidden="true"><path d="M9 4l-6 2v14l6-2 6 2 6-2V4l-6 2z" /></svg>
             Voir les zones favorables
           </a>
