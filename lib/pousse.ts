@@ -100,15 +100,32 @@ export type Mode = "carreaux" | "foret";
 const BLOC = 6; // carreaux de 6 × 6 pixels (600 m Web Mercator, ≈ 400 m au sol)
 
 /** Dessine la couche de probabilité sur un canvas de la taille du raster des forêts. */
-export function dessiner(canvas: HTMLCanvasElement, f: Forets, cls: Uint8Array, m: Meteo, g: Float32Array, p: ParamCarte, mode: Mode) {
+export interface Couche { p: ParamCarte; g: Float32Array }
+
+/** Valeur maximale parmi les espèces d'un groupe, pour une classe d'essence et un point. */
+function maxCouches(pws: Float32Array[], gs: Float32Array[], c: number, m: Meteo, lon: number, lat: number) {
+  let v = 0;
+  for (let k = 0; k < gs.length; k++) {
+    const w = pws[k][c];
+    if (w <= v) continue; // l’échantillon météo ne dépasse jamais 1
+    const x = w * echantillon(m, gs[k], lon, lat);
+    if (x > v) v = x;
+  }
+  return v;
+}
+
+/** Dessine la couche de probabilité (maximum des espèces fournies) sur un canvas de la taille du raster des forêts. */
+export function dessiner(canvas: HTMLCanvasElement, f: Forets, cls: Uint8Array, m: Meteo, couches: Couche[], mode: Mode) {
   const { width: w, height: h } = f;
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d")!;
   const lons = new Float32Array(w), lats = new Float32Array(h);
   for (let x = 0; x < w; x++) lons[x] = mercToLon(f.merc[0] + (x + 0.5) * f.res);
   for (let y = 0; y < h; y++) lats[y] = mercToLat(f.merc[3] - (y + 0.5) * f.res);
-  const pw = new Float32Array(10);
-  for (let c = 0; c < 10; c++) pw[c] = poids(p, c);
+  // Les espèces hors saison (grille nulle) sont ignorées
+  const actives = couches.filter((c) => c.g.some((v) => v > 0));
+  const gs = actives.map((c) => c.g);
+  const pws = actives.map((c) => { const a = new Float32Array(10); for (let k = 0; k < 10; k++) a[k] = poids(c.p, k); return a; });
 
   const img = ctx.createImageData(w, h);
   const d = img.data;
@@ -117,7 +134,7 @@ export function dessiner(canvas: HTMLCanvasElement, f: Forets, cls: Uint8Array, 
     const val = new Float32Array(w * h);
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       const i = y * w + x;
-      if (cls[i]) val[i] = pw[cls[i]] * echantillon(m, g, lons[x], lats[y]);
+      if (cls[i]) val[i] = maxCouches(pws, gs, cls[i], m, lons[x], lats[y]);
     }
     const lisse = flou(val, cls, w, h, 4);
     for (let i = 0; i < w * h; i++) {
@@ -127,14 +144,21 @@ export function dessiner(canvas: HTMLCanvasElement, f: Forets, cls: Uint8Array, 
     }
   } else {
     for (let by = 0; by < h; by += BLOC) for (let bx = 0; bx < w; bx += BLOC) {
-      let somme = 0, foret = 0, n = 0;
+      const nb = new Uint16Array(10);
+      let foret = 0, n = 0;
       for (let y = by; y < Math.min(by + BLOC, h); y++) for (let x = bx; x < Math.min(bx + BLOC, w); x++) {
         const c = cls[y * w + x]; n++;
-        if (c) { foret++; somme += pw[c]; }
+        if (c) { foret++; nb[c]++; }
       }
-      if (foret / n < 0.25) continue;
+      if (foret / n < 0.25 || !gs.length) continue;
       const cx = Math.min(bx + BLOC / 2, w - 1), cy = Math.min(by + BLOC / 2, h - 1);
-      const v = (somme / foret) * echantillon(m, g, lons[cx | 0], lats[cy | 0]);
+      let v = 0;
+      for (let k = 0; k < gs.length; k++) {
+        let somme = 0;
+        for (let c = 1; c < 10; c++) somme += nb[c] * pws[k][c];
+        const x = (somme / foret) * echantillon(m, gs[k], lons[cx | 0], lats[cy | 0]);
+        if (x > v) v = x;
+      }
       const [r, gg, b, a] = palier(v);
       if (!a) continue;
       for (let y = by; y < Math.min(by + BLOC - 1, h); y++) for (let x = bx; x < Math.min(bx + BLOC - 1, w); x++) {

@@ -85,3 +85,18 @@ export const HORS_FORET = [
   "coulemelle", "rose-des-pres", "agaric-des-jacheres", "mousseron-saint-georges", "faux-mousseron",
   "agrocybe-precoce", "vesse-de-loup-geante", "coprin-chevelu", "truffe-noire",
 ];
+
+/** Groupes proposés dans le menu de la carte (les espèces restantes vont dans « Autres comestibles »). */
+export const GROUPES: { id: string; nom: string; especes: string[] }[] = [
+  { id: "cepes", nom: "Cèpes et bolets", especes: [
+    "cepe-de-bordeaux", "cepe-des-pins", "cepe-d-ete", "cepe-bronze", "bolet-bai", "bolet-a-pied-rouge", "bolet-blafard",
+    "bolet-de-quelet", "bolet-rude", "bolet-orange", "bolet-a-chair-jaune", "bolet-jaune", "nonnette-granulee"] },
+  { id: "chanterelles", nom: "Chanterelles et pieds de mouton", especes: [
+    "girolle", "chanterelle-en-tube", "trompette-de-la-mort", "pied-de-mouton", "pied-de-mouton-roux"] },
+  { id: "morilles", nom: "Morilles", especes: ["morille-commune", "morille-conique"] },
+  { id: "lactaires-russules", nom: "Lactaires et russules", especes: [
+    "lactaire-delicieux", "lactaire-de-l-epicea", "lactaire-sanguin",
+    "russule-charbonniere", "russule-verdoyante", "russule-comestible", "russule-entiere"] },
+];
+const classes = new Set(GROUPES.flatMap((g) => g.especes));
+GROUPES.push({ id: "autres", nom: "Autres comestibles", especes: Object.keys(CARTE).filter((id) => !classes.has(id)) });

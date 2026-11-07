@@ -158,3 +158,11 @@ h1 { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.1; }
 .prev .pct small { font-size: 12px; font-weight: 400; color: var(--muted); }
 .map-wrap .mode { bottom: 36px; }
 .map-wrap .legend { bottom: 40px; } .map-wrap .mode { bottom: 40px; }
+.classement { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line-soft); border-radius: 6px; overflow: hidden; }
+.classement li + li { border-top: 1px solid var(--line-soft); }
+.classement a { display: grid; grid-template-columns: 1fr 72px 32px; align-items: center; gap: 10px; padding: 9px 12px; color: var(--text); text-decoration: none; background: var(--surface); min-height: 48px; }
+.classement .nom { display: flex; flex-direction: column; font-size: 15px; font-weight: 600; }
+.classement .saison { font-size: 12px; font-weight: 400; color: var(--muted); }
+.classement .barre { height: 6px; border-radius: 3px; background: var(--line-soft); overflow: hidden; }
+.classement .barre i { display: block; height: 100%; background: var(--accent); }
+.classement .val { font-family: var(--mono); font-size: 13px; text-align: right; color: var(--muted); }

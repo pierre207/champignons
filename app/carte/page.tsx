@@ -5,7 +5,7 @@ import type { Map as MLMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import Shell from "@/components/Shell";
 import { especes } from "@/data";
-import { CARTE, HORS_FORET } from "@/data/carte";
+import { CARTE, GROUPES, HORS_FORET } from "@/data/carte";
 import { PALIERS, dessiner, grilleMeteo, indice, type Forets, type Meteo, type Mode } from "@/lib/pousse";
 
 const ZONE = "alsace";
@@ -18,9 +18,8 @@ const CREDITS = "BD Forêt V2 © IGN · Météo Open-Meteo";
 type Etat = "chargement" | "pret" | "sans-donnees";
 
 export default function Carte() {
-  const options = useMemo(() => especes.filter((e) => e.cat === "comestible" && CARTE[e.id]), []);
   const horsForet = useMemo(() => especes.filter((e) => HORS_FORET.includes(e.id)).map((e) => e.fr), []);
-  const [id, setId] = useState(options[0].id);
+  const [gid, setGid] = useState(GROUPES[0].id);
   const [mode, setMode] = useState<Mode>("foret");
   const [jour, setJour] = useState<0 | 1>(0);
   const [etat, setEtat] = useState<Etat>("chargement");
@@ -35,7 +34,8 @@ export default function Carte() {
   // Paramètres d'URL et préférence de rendu
   useEffect(() => {
     const q = new URLSearchParams(window.location.search).get("id");
-    if (q && CARTE[q]) setId(q);
+    const g = q && GROUPES.find((x) => x.especes.includes(q));
+    if (g) setGid(g.id);
     try { const m = localStorage.getItem("carte-mode"); if (m === "carreaux" || m === "foret") setMode(m); } catch {}
   }, []);
 
@@ -82,40 +82,47 @@ export default function Carte() {
     return () => { annule = true; map?.remove(); carte.current = null; };
   }, []);
 
-  const param = CARTE[id];
-  const esp = especes.find((e) => e.id === id)!;
+  const groupe = GROUPES.find((g) => g.id === gid)!;
+  const membres = useMemo(() => groupe.especes.map((id) => especes.find((e) => e.id === id)!).filter(Boolean), [groupe]);
 
-  // Grilles météo du jour et du lendemain pour l'espèce choisie
-  const grilles = useMemo(() => {
+  // Grilles météo du jour et du lendemain pour chaque espèce du groupe
+  const couches = useMemo(() => {
     const d = donnees.current;
     if (etat !== "pret" || !d) return null;
-    return [grilleMeteo(d.m, d.m.today, param, esp), grilleMeteo(d.m, d.m.today + 1, param, esp)];
-  }, [etat, param, esp]);
+    return [0, 1].map((j) => membres.map((e) => ({ e, p: CARTE[e.id], g: grilleMeteo(d.m, d.m.today + j, CARTE[e.id], e) })));
+  }, [etat, membres]);
 
   // Dessin de la couche de probabilité
   useEffect(() => {
     const map = carte.current, d = donnees.current;
-    if (!pret || !map || !d || !grilles) return;
+    if (!pret || !map || !d || !couches) return;
     const canvas = toile.current ?? (toile.current = document.createElement("canvas"));
-    dessiner(canvas, d.f, d.cls, d.m, grilles[jour], param, mode);
+    dessiner(canvas, d.f, d.cls, d.m, couches[jour], mode);
     const [x0, y0, x1, y1] = d.f.lonlat;
     if (map.getLayer("pousse")) map.removeLayer("pousse");
     if (map.getSource("pousse")) map.removeSource("pousse");
     map.addSource("pousse", { type: "canvas", canvas, animate: false, coordinates: [[x0, y1], [x1, y1], [x1, y0], [x0, y0]] });
     const etiquettes = map.getStyle().layers.find((l) => l.type === "symbol")?.id;
     map.addLayer({ id: "pousse", type: "raster", source: "pousse", paint: { "raster-opacity": 0.85, "raster-resampling": mode === "carreaux" ? "nearest" : "linear" } }, etiquettes);
-  }, [pret, grilles, jour, mode, param]);
+  }, [pret, couches, jour, mode]);
 
   const changerMode = (m: Mode) => { setMode(m); try { localStorage.setItem("carte-mode", m); } catch {} };
 
   // Indices au centre de la carte
   const ici = useMemo(() => {
     const d = donnees.current;
-    if (!d || !grilles || !centre) return null;
-    const a = indice(d.f, d.cls, d.m, grilles[0], param, centre.lon, centre.lat);
-    const b = indice(d.f, d.cls, d.m, grilles[1], param, centre.lon, centre.lat);
-    return a && b ? { classe: a.classe, auj: Math.round(a.valeur * 100), dem: Math.round(b.valeur * 100) } : null;
-  }, [grilles, centre, param]);
+    if (!d || !couches || !centre) return null;
+    let classe = 0;
+    const liste = couches[0].map((c, k) => {
+      const a = indice(d.f, d.cls, d.m, c.g, c.p, centre.lon, centre.lat);
+      const b = indice(d.f, d.cls, d.m, couches[1][k].g, c.p, centre.lon, centre.lat);
+      if (a) classe = a.classe;
+      return { e: c.e, auj: a ? Math.round(a.valeur * 100) : 0, dem: b ? Math.round(b.valeur * 100) : 0 };
+    });
+    if (!liste.length) return null;
+    liste.sort((x, y) => y.auj - x.auj || y.dem - x.dem || x.e.fr.localeCompare(y.e.fr));
+    return { classe, liste, auj: Math.max(...liste.map((l) => l.auj)), dem: Math.max(...liste.map((l) => l.dem)) };
+  }, [couches, centre]);
 
   const m = donnees.current?.m;
   const maj = m ? new Date(m.updated).toLocaleString("fr-FR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }) : "";
@@ -127,8 +134,8 @@ export default function Carte() {
         <div className="viseur" aria-hidden="true" />
 
         <div className="map-top">
-          <select value={id} onChange={(e) => setId(e.target.value)} aria-label="Espèce affichée">
-            {options.map((o) => <option key={o.id} value={o.id}>{o.fr}</option>)}
+          <select value={gid} onChange={(e) => setGid(e.target.value)} aria-label="Groupe d'espèces affiché">
+            {GROUPES.map((g) => <option key={g.id} value={g.id}>{g.nom}</option>)}
           </select>
           <span className="chip">{etat === "sans-donnees" ? "DONNÉES EN PRÉPARATION" : `ALSACE · ${jour === 0 ? "AUJOURD'HUI" : "DEMAIN"} · ESTIMATION`}</span>
         </div>
@@ -172,11 +179,31 @@ export default function Carte() {
             </button>
           </div>
         )}
+        {etat !== "sans-donnees" && (
+          <div>
+            <h3 className="mono" style={{ margin: "4px 0 6px" }}>{groupe.nom} · {jour === 0 ? "aujourd'hui" : "demain"}</h3>
+            <ul className="classement">
+              {(ici?.liste ?? membres.map((e) => ({ e, auj: 0, dem: 0 })))
+                .slice().sort((x, y) => (jour === 0 ? y.auj - x.auj : y.dem - x.dem))
+                .map(({ e, auj, dem }) => {
+                  const v = jour === 0 ? auj : dem;
+                  return (
+                    <li key={e.id}>
+                      <a href={`/fiche?id=${e.id}`}>
+                        <span className="nom">{e.fr}<span className="saison">{e.f.s}</span></span>
+                        <span className="barre" aria-hidden="true"><i style={{ width: `${v}%` }} /></span>
+                        <span className="val">{ici ? v : "–"}</span>
+                      </a>
+                    </li>
+                  );
+                })}
+            </ul>
+          </div>
+        )}
         <p className="note">
-          Estimation calculée à partir du type de forêt (IGN), de la pluie des 4 à 14 derniers jours, de la température et de la saison de {esp.fr.toLowerCase()} ({esp.f.s?.toLowerCase()}). Ce n&apos;est pas une observation de terrain.{maj ? ` Météo mise à jour le ${maj}.` : ""}
+          Indice au centre du viseur, pour l&apos;espèce la plus favorable du groupe. Estimation calculée à partir du type de forêt (IGN), de la pluie des 4 à 14 derniers jours, de la température et de la saison de chaque espèce. Ce n&apos;est pas une observation de terrain.{maj ? ` Météo mise à jour le ${maj}.` : ""}
         </p>
         <p className="note">Non affichées (espèces de prairies, de jardins ou cultivées) : {horsForet.join(", ")}.</p>
-        <a className="btn btn-ghost" href={`/fiche?id=${esp.id}`}>Voir la fiche</a>
       </section>
     </Shell>
   );
