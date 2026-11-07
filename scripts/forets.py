@@ -36,7 +36,9 @@ def trouver_archive(dep: str) -> str:
     motif = re.compile(rf"BDFORET_2-0__SHP_LAMB93_D0?{int(dep):03d}_[0-9-]+")
     for liste in LISTINGS:
         try:
-            txt = get(liste).decode("utf-8", "replace")
+            # Le flux Atom de la Géoplateforme est paginé : on filtre par département
+            url = f"{liste}?zone=D{int(dep):03d}&format=SHP" if "geopf" in liste else liste
+            txt = get(url).decode("utf-8", "replace")
         except Exception as e:  # noqa: BLE001
             print(f"[liste] {liste} : {e}")
             continue
