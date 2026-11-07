@@ -1,0 +1,40 @@
+name: Carte des forêts
+
+on:
+  workflow_dispatch:
+    inputs:
+      zone:
+        description: "Nom de la zone"
+        default: "alsace"
+      deps:
+        description: "Départements, séparés par des espaces"
+        default: "67 68"
+  push:
+    branches: [main]
+    paths: ["scripts/forets.py", ".github/workflows/forets.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  forets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Outils
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q p7zip-full
+          pip install -q geopandas pyogrio rasterio pillow
+      - name: Générer la carte des essences
+        run: python scripts/forets.py --zone "${{ inputs.zone || 'alsace' }}" --deps ${{ inputs.deps || '67 68' }}
+      - name: Enregistrer
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/data
+          git diff --cached --quiet || git commit -m "Données forêts : ${{ inputs.zone || 'alsace' }}"
+          git pull --rebase -q && git push
