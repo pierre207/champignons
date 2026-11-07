@@ -143,7 +143,7 @@ export default function Carte() {
           <div><span className="lbl">Demain</span><span className="pct">{dem} %</span><span className="meta">démo · pluie et températures à venir</span></div>
         </div>
         <p className="note">{esp.fr} : {esp.f.h}. Saison : {esp.f.s?.toLowerCase()}.</p>
-        <a className="btn btn-ghost" href={`fiche.html?id=${esp.id}`}>Voir la fiche</a>
+        <a className="btn btn-ghost" href={`/fiche?id=${esp.id}`}>Voir la fiche</a>
       </section>
     </Shell>
   );
