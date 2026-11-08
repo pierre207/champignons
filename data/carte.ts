@@ -22,12 +22,7 @@ export const TEMP: Record<Profil, [number, number, number, number]> = {
   printemps: [5, 9, 16, 22],
   hiver: [1, 4, 12, 18],
 };
-// Bilan hydrique (mm) entre 4 et 18 jours avant le jour considéré, pondéré par l'ancienneté (voir poidsPluie) : pluie moins évaporation (ET0).
-// Le même seuil vaut pour toutes les régions : l'évaporation tient compte du climat local
-// (20 mm de pluie ne valent pas la même chose en Provence par vent chaud qu'en Bretagne).
-// En dessous du minimum, pas de pousse ; à partir de l'optimum, facteur maximal.
-export const BILAN: [number, number] = [-10, 20];
-// Ancien seuil sur la pluie brute (mm), utilisé si la météo ne contient pas encore l'évaporation
+// Pluie cumulée (mm) entre 4 et 18 jours avant le jour considéré, pondérée par l'ancienneté (voir poidsPluie)
 export const PLUIE: Record<Profil, [number, number]> = {
   ete: [15, 50],
   automne: [10, 35],
@@ -106,21 +101,3 @@ export const GROUPES: { id: string; nom: string; especes: string[] }[] = [
 const classes = new Set(GROUPES.flatMap((g) => g.especes));
 GROUPES.push({ id: "autres", nom: "Autres comestibles", especes: Object.keys(CARTE).filter((id) => !classes.has(id)) });
 
-// Altitude
-/** Baisse de la température avec l'altitude (°C par mètre), gradient moyen de l'atmosphère. */
-export const GRADIENT = 0.0065;
-/** Marge (m) au-delà de la plage d'altitude d'une espèce : l'indice décroît jusqu'à 0 sur cette distance. */
-export const MARGE_ALTITUDE = 200;
-/** Plage d'altitude (m) d'après le champ « altitude » des fiches. À valider avec le mycologue. */
-export function plageAltitude(a?: string): [number, number] {
-  const t = (a ?? "").toLowerCase();
-  if (t.includes("climat doux")) return [0, 500];
-  if (t.startsWith("surtout plaine")) return [0, 600];
-  if (t.includes("plaine et collines")) return [0, 800];
-  if (t.includes("montagne moyenne")) return [0, 1300];
-  if (t.includes("plaine à montagne")) return [0, 1800];
-  if (t.includes("collines et montagne")) return [200, 1900];
-  if (t.includes("surtout montagne")) return [500, 2000];
-  if (t.includes("montagne")) return [700, 2000];
-  return [0, 2000];
-}

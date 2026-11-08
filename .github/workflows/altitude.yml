@@ -1,13 +1,9 @@
 name: Altitude
 
 # Altitude des départements qui n'en ont pas encore (après la génération mensuelle des forêts)
+# Données d'altitude conservées mais non utilisées par la carte : lancement manuel uniquement
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "17 9 1 * *"  # le 1er de chaque mois, après les forêts
-  push:
-    branches: [main]
-    paths: ["scripts/altitude.py", ".github/workflows/altitude.yml"]
 
 permissions:
   contents: write
