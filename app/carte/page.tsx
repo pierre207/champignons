@@ -75,7 +75,13 @@ export default function Carte() {
         minZoom: 7, maxZoom: 15, attributionControl: { compact: true, customAttribution: CREDITS },
       });
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
-      map.on("load", () => { carte.current = map!; setPret(true); });
+      map.on("load", () => {
+        carte.current = map!; setPret(true);
+        // Crédits repliés à l'ouverture : un clic sur (i) les affiche
+        const a = boite.current?.querySelector(".maplibregl-ctrl-attrib");
+        a?.classList.remove("maplibregl-compact-show");
+        a?.removeAttribute("open");
+      });
       const maj = () => { const c = map!.getCenter(); setCentre({ lon: c.lng, lat: c.lat }); };
       map.on("moveend", maj);
       map.on("load", maj);
