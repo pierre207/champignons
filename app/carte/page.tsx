@@ -43,6 +43,19 @@ function phrase(n: { solH: number; solT: number; pluie: number; saison: number }
   return debut + fin;
 }
 
+const MOIS_COURTS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
+/** Mois du pic : le milieu de la saison (de 30 % à 70 % de la période), comme la bande verte de la jauge. */
+function picMois([a, b]: [number, number]) {
+  const mois: number[] = [];
+  for (let m = a; ; m = (m % 12) + 1) { mois.push(m); if (m === b) break; }
+  const L = mois.length;
+  // Mois dont le milieu tombe dans la bande du pic ; à défaut, le mois central
+  const pic = mois.filter((_, k) => { const c = (k + 0.5) / L; return c >= 0.3 - 1e-9 && c <= 0.7 + 1e-9; });
+  const p = pic.length ? pic : [mois[Math.floor((L - 1) / 2)]];
+  const d = MOIS_COURTS[p[0] - 1], f = MOIS_COURTS[p[p.length - 1] - 1];
+  return d === f ? d : `${d}–${f}`;
+}
+
 /** Vert dans la zone idéale, rouge quand la note est nulle (au-delà des limites), jaune entre les deux. */
 const couleurCurseur = (pos: number, [a, b]: [number, number], note: number) =>
   pos >= a && pos <= b ? "var(--ok)" : note <= 0 ? "var(--danger)" : "#d9a338";
@@ -352,7 +365,7 @@ export default function Carte() {
                   <Jauge nom="Pluie des 7 derniers jours" poids={POIDS_NOTES.pluie} valeur={Number.isNaN(detail.brut.pluie) ? "–" : `${Math.round(detail.brut.pluie)} mm`}
                     pos={detail.brut.pluie / 60} ideal={[PLUIE7[0] / 60, PLUIE7[1] / 60]} note={detail.notes.pluie} bornes={["0 mm", `Idéal ${PLUIE7[0]}–${PLUIE7[1]} mm`, "60 mm"]} />
                   <Jauge nom="Saison" poids={POIDS_NOTES.saison} valeur={detail.saisonPos < 0 ? "Hors saison" : detail.saisonPos < 0.3 ? "Début de saison" : detail.saisonPos <= 0.7 ? "Bonne période" : detail.saisonPos <= 1 ? "Fin de saison" : "Hors saison"}
-                    pos={(detail.saisonPos + 0.2) / 1.4} ideal={[0.5 / 1.4, 0.9 / 1.4]} note={detail.notes.saison} bornes={["Tôt", `Pic (${choisie.e.f.s ?? ""})`, "Tard"]} />
+                    pos={(detail.saisonPos + 0.2) / 1.4} ideal={[0.5 / 1.4, 0.9 / 1.4]} note={detail.notes.saison} bornes={["Tôt", `Pic : ${picMois(choisie.e.mois)}`, "Tard"]} />
                 </div>
                 <p className="note" style={{ marginTop: 10 }}>
                   Indice = moyenne pondérée des 4 notes, multipliée par l&apos;intérêt du type de forêt pour l&apos;espèce ({NOMS_CLASSES[ici!.classe].toLowerCase()}). Hors saison, pas d&apos;indice.
