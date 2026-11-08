@@ -20,7 +20,8 @@ type Etat = "chargement" | "pret" | "sans-donnees";
 export default function Carte() {
   const horsForet = useMemo(() => especes.filter((e) => HORS_FORET.includes(e.id)).map((e) => e.fr), []);
   const [gid, setGid] = useState(GROUPES[0].id);
-  const [mode, setMode] = useState<Mode>("foret");
+  // Rendu « carreaux » conservé dans lib/pousse.ts mais masqué pour l’instant
+  const mode: Mode = "foret";
   const [jour, setJour] = useState<0 | 1>(0);
   const [etat, setEtat] = useState<Etat>("chargement");
   const [centre, setCentre] = useState<{ lon: number; lat: number } | null>(null);
@@ -36,7 +37,6 @@ export default function Carte() {
     const q = new URLSearchParams(window.location.search).get("id");
     const g = q && GROUPES.find((x) => x.especes.includes(q));
     if (g) setGid(g.id);
-    try { const m = localStorage.getItem("carte-mode"); if (m === "carreaux" || m === "foret") setMode(m); } catch {}
   }, []);
 
   // Chargement des données et de la carte
@@ -103,10 +103,9 @@ export default function Carte() {
     if (map.getSource("pousse")) map.removeSource("pousse");
     map.addSource("pousse", { type: "canvas", canvas, animate: false, coordinates: [[x0, y1], [x1, y1], [x1, y0], [x0, y0]] });
     const etiquettes = map.getStyle().layers.find((l) => l.type === "symbol")?.id;
-    map.addLayer({ id: "pousse", type: "raster", source: "pousse", paint: { "raster-opacity": 0.85, "raster-resampling": mode === "carreaux" ? "nearest" : "linear" } }, etiquettes);
-  }, [pret, couches, jour, mode]);
+    map.addLayer({ id: "pousse", type: "raster", source: "pousse", paint: { "raster-opacity": 0.85, "raster-resampling": "linear" } }, etiquettes);
+  }, [pret, couches, jour]);
 
-  const changerMode = (m: Mode) => { setMode(m); try { localStorage.setItem("carte-mode", m); } catch {} };
 
   // Indices au centre de la carte
   const ici = useMemo(() => {
@@ -141,24 +140,9 @@ export default function Carte() {
         </div>
 
         <div className="legend">
-          <span className="mono" style={{ fontSize: 11 }}>{mode === "foret" ? "Indice de pousse (en forêt)" : "Indice de pousse"}</span>
-          {mode === "foret" ? (
-            <>
-              <span className="legend-bar" style={{ background: `linear-gradient(90deg, ${PALIERS.map((p) => p.couleur).join(", ")})` }} />
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Faible</span><span>Élevé</span></div>
-            </>
-          ) : (
-            <div className="legend-steps">
-              <span><i style={{ background: PALIERS[0].couleur }} />Faible</span>
-              <span><i style={{ background: PALIERS[1].couleur }} />Moy.</span>
-              <span><i style={{ background: PALIERS[2].couleur }} />Élevé</span>
-            </div>
-          )}
-        </div>
-
-        <div className="mode" role="group" aria-label="Rendu de la carte">
-          <button aria-pressed={mode === "carreaux"} onClick={() => changerMode("carreaux")}>Carreaux</button>
-          <button aria-pressed={mode === "foret"} onClick={() => changerMode("foret")}>Dégradé</button>
+          <span className="mono" style={{ fontSize: 11 }}>Indice de pousse</span>
+          <span className="legend-bar" style={{ background: `linear-gradient(90deg, ${PALIERS.map((p) => p.couleur).join(", ")})` }} />
+          <div style={{ display: "flex", justifyContent: "space-between" }}><span>Faible</span><span>Élevé</span></div>
         </div>
       </div>
 
