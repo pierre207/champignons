@@ -83,13 +83,11 @@ export default function Fiche() {
           <p className="note">En cas de doute après un repas : appelez le 15 ou un centre antipoison et gardez les restes de champignons.</p>
         )}
 
-        {photos.length > 0 && (
+        {photos.some((p) => p.o) && (
           <p className="note credits">
-            {photos.some((p) => p.o) ? (
-              <>Photos : Wikimedia Commons ({photos.map((p, i) => (
-                <span key={i}>{i ? ", " : ""}{p.o ? <a href={commons(p.o)} target="_blank" rel="noopener">{i + 1}</a> : i + 1}</span>
-              ))}). Auteurs et licences à reporter.</>
-            ) : <>Photos : source à préciser.</>}
+            Photos : Wikimedia Commons ({photos.map((p, i) => (
+              <span key={i}>{i ? ", " : ""}{p.o ? <a href={commons(p.o)} target="_blank" rel="noopener">{i + 1}</a> : i + 1}</span>
+            ))}).
           </p>
         )}
 
