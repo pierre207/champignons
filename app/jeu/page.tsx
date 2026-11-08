@@ -5,6 +5,7 @@ import Shell from "@/components/Shell";
 import { CATS, especes, type Espece } from "@/data";
 import { aPhotos, photosJeu, tuileStyle, type Tuile } from "@/data/photos";
 import { LexiqueContenu, avecMots } from "@/components/Lexique";
+import { critereCle } from "@/data/criteres";
 
 // Partie sans fin : le niveau monte toutes les 5 réponses, jusqu'au niveau 3
 const PALIER = 5;
@@ -89,10 +90,11 @@ const LIGNES: { cle: string; nom: string; val: (e: Espece) => string | undefined
 
 /** Comparaison entre l'espèce choisie par erreur et la bonne réponse. */
 function Comparaison({ choix, bonne, ouvrirLexique }: { choix: Choix; bonne: Choix; ouvrirLexique: () => void }) {
-  // Critère clé : le dessous du chapeau, quand les deux espèces en ont un et qu'il diffère (lames, tubes, plis, aiguillons)
-  const [da, db] = [dessous(choix.e), dessous(bonne.e)];
-  const cle = da !== "autre" && db !== "autre" && da !== db ? "d" : null;
   const lignes = LIGNES.filter((l) => l.val(choix.e) || l.val(bonne.e));
+  // Critère clé : choisi à la main pour les sosies connus ; sinon le dessous du chapeau, quand les deux espèces en ont un et qu'il diffère
+  const [da, db] = [dessous(choix.e), dessous(bonne.e)];
+  const main = critereCle(choix.e.id, bonne.e.id);
+  const cle = main && lignes.some((l) => l.cle === main) ? main : da !== "autre" && db !== "autre" && da !== db ? "d" : null;
   const cite = (a: Espece, b: Espece) => !!a.f.r && (norm(a.f.r).includes(norm(b.fr)) || norm(a.f.r).includes(norm(b.la)));
   const retenir = cite(choix.e, bonne.e) ? choix.e.f.r : cite(bonne.e, choix.e) ? bonne.e.f.r : bonne.e.f.r;
   return (
