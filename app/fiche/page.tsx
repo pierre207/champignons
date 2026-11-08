@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Shell from "@/components/Shell";
 import { CATS, especes, parId, type Espece } from "@/data";
-import { commons, photosDP, photosFiche, tuileStyle } from "@/data/photos";
+import { commons, photosFiche, tuileStyle } from "@/data/photos";
 
 const ROWS: [keyof Espece["f"], string][] = [
   ["c", "CHAPEAU / FORME"], ["co", "COULEUR"], ["d", "DESSOUS"], ["p", "PIED"], ["ch", "CHAIR"],
@@ -23,7 +23,6 @@ export default function Fiche() {
 
   const cat = CATS.find((c) => c.key === e.cat)!;
   const photos = photosFiche(e.id);
-  const dp = photosDP(e.id);
   const index = especes.indexOf(e) + 1;
   const xLabel = e.cat === "comestible" ? "CONSOMMATION" : e.cat === "toxique" ? "SYMPTÔMES ET DÉLAI" : "POURQUOI L'ÉVITER";
 
@@ -47,13 +46,6 @@ export default function Fiche() {
           <div>[Photo adulte — à venir]</div>
           <div>[Dessous]</div>
           <div>[Coupe]</div>
-        </div>
-      )}
-
-      {(dp.d || dp.p) && (
-        <div className="photos-dp" role="group" aria-label={`Dessous et pied de ${e.fr}`}>
-          {dp.d && <figure><div className="tuile" role="img" aria-label={`${e.fr}, dessous du chapeau`} style={tuileStyle(dp.d)} /><figcaption>Dessous</figcaption></figure>}
-          {dp.p && <figure><div className="tuile" role="img" aria-label={`${e.fr}, pied`} style={tuileStyle(dp.p)} /><figcaption>Pied</figcaption></figure>}
         </div>
       )}
 
