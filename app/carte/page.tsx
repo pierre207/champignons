@@ -43,6 +43,10 @@ function phrase(n: { solH: number; solT: number; pluie: number; saison: number }
   return debut + fin;
 }
 
+/** Vert dans la zone idéale, rouge quand la note est nulle (au-delà des limites), jaune entre les deux. */
+const couleurCurseur = (pos: number, [a, b]: [number, number], note: number) =>
+  pos >= a && pos <= b ? "var(--ok)" : note <= 0 ? "var(--danger)" : "#d9a338";
+
 /** Jauge d'une note : valeur, zone idéale, position. */
 function Jauge({ nom, poids, valeur, pos, ideal, note, bornes }: {
   nom: string; poids: number; valeur: string; pos: number; ideal: [number, number]; note: number; bornes: [string, string, string];
@@ -53,7 +57,7 @@ function Jauge({ nom, poids, valeur, pos, ideal, note, bornes }: {
       <div className="l"><span>{nom}<span className="poids"> · {Math.round(poids * 100)} %</span></span><b>{valeur}</b></div>
       <div className="jauge" aria-hidden="true">
         <div className="ideal" style={{ left: `${ideal[0] * 100}%`, width: `${(ideal[1] - ideal[0]) * 100}%` }} />
-        {p !== null && <div className="pt" style={{ left: `${p * 100}%`, background: note >= 0.75 ? "var(--ok)" : note >= 0.4 ? "#c98a32" : "var(--danger)" }} />}
+        {p !== null && <div className="pt" style={{ left: `${p * 100}%`, background: couleurCurseur(pos, ideal, note) }} />}
       </div>
       <div className="bornes"><span>{bornes[0]}</span><span>{bornes[1]}</span><span>{bornes[2]}</span></div>
     </div>
