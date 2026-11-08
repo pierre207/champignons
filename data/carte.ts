@@ -22,7 +22,7 @@ export const TEMP: Record<Profil, [number, number, number, number]> = {
   printemps: [5, 9, 16, 22],
   hiver: [1, 4, 12, 18],
 };
-// Bilan hydrique (mm) entre 4 et 14 jours avant le jour considéré : pluie moins évaporation (ET0).
+// Bilan hydrique (mm) entre 4 et 18 jours avant le jour considéré, pondéré par l'ancienneté (voir poidsPluie) : pluie moins évaporation (ET0).
 // Le même seuil vaut pour toutes les régions : l'évaporation tient compte du climat local
 // (20 mm de pluie ne valent pas la même chose en Provence par vent chaud qu'en Bretagne).
 // En dessous du minimum, pas de pousse ; à partir de l'optimum, facteur maximal.

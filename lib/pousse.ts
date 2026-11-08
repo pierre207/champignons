@@ -48,6 +48,11 @@ export interface Grille {
   plage: [number, number];
 }
 
+/** Poids d'un jour de pluie selon son ancienneté (jours) : rien les 3 derniers jours, plein effet de 4 à 10 jours,
+ *  puis effet décroissant jusqu'à 18 jours. Évite qu'une forte pluie disparaisse d'un coup du calcul.
+ *  Somme des poids = 11, comme l'ancienne fenêtre fixe de 4 à 14 jours : les seuils restent valables. */
+export const poidsPluie = (age: number) => (age < 4 || age > 18 ? 0 : age <= 10 ? 1 : (19 - age) / 9);
+
 /** Facteur pluie (bilan pluie − évaporation si disponible) et température moyenne en un point de grille. */
 function pointMeteo(m: Meteo, point: number, jour: number, p: ParamCarte): [number, number] {
   const pluie = m.rain[point];
@@ -55,7 +60,11 @@ function pointMeteo(m: Meteo, point: number, jour: number, p: ParamCarte): [numb
   if (!pluie || !temp) return [0, NaN];
   const et0 = m.et0?.[point];
   let cumul = 0;
-  for (let d = jour - 14; d <= jour - 4; d++) if (d >= 0) cumul += (pluie[d] ?? 0) - (et0 ? et0[d] ?? 0 : 0);
+  for (let d = jour - 18; d <= jour - 4; d++) {
+    if (d < 0) continue;
+    const w = poidsPluie(jour - d);
+    cumul += w * ((pluie[d] ?? 0) - (et0 ? et0[d] ?? 0 : 0));
+  }
   let ts = 0, n = 0;
   for (let d = jour - 6; d <= jour; d++) { const t = temp[d]; if (d >= 0 && t != null) { ts += t; n++; } }
   const [rmin, ropt] = et0 ? BILAN : PLUIE[p.profil];

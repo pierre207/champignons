@@ -286,7 +286,7 @@ export default function Carte() {
           </div>
         )}
         <p className="note">
-          Indice au centre du viseur, pour l&apos;espèce la plus favorable du groupe. Estimation calculée à partir du type de forêt (IGN), de la pluie des 4 à 14 derniers jours, de la température et de la saison de chaque espèce. Ce n&apos;est pas une observation de terrain.{maj ? ` Météo mise à jour le ${maj}.` : ""}
+          Indice au centre du viseur, pour l&apos;espèce la plus favorable du groupe. Estimation calculée à partir du type de forêt (IGN), de la pluie et de l&apos;évaporation des 4 à 18 derniers jours (les plus anciens comptant moins), de la température et de la saison de chaque espèce. Ce n&apos;est pas une observation de terrain.{maj ? ` Météo mise à jour le ${maj}.` : ""}
         </p>
         <p className="note">Non affichées (espèces de prairies, de jardins ou cultivées) : {horsForet.join(", ")}.</p>
       </section>
