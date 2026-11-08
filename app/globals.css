@@ -187,3 +187,4 @@ h1 { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.1; }
 .map-wrap .recherche-lieu .search { padding: 0 10px; gap: 8px; }
 .map-wrap .lieux { top: 52px; }
 .map-wrap .maplibregl-ctrl-top-right { top: 64px; }
+.fin-partie { align-self: center; background: none; border: 0; padding: 6px 10px; font: inherit; font-size: 13px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }

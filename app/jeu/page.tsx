@@ -5,7 +5,10 @@ import Shell from "@/components/Shell";
 import { CATS, especes, type Espece } from "@/data";
 import { aPhotos, photosJeu, tuileStyle, type Tuile } from "@/data/photos";
 
-const TOTAL = 10;
+// Partie sans fin : le niveau monte toutes les 5 réponses, jusqu'au niveau 3
+const PALIER = 5;
+const NIVEAU_MAX = 3;
+const niveauDe = (n: number) => Math.min(NIVEAU_MAX, Math.floor((n - 1) / PALIER) + 1);
 // Seules les espèces qui ont des photos entrent dans le jeu
 const pool = especes.filter((e) => aPhotos(e.id));
 
@@ -21,20 +24,58 @@ const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCa
 type Choix = { e: Espece; t: Tuile };
 type Q = { answer: Espece; choices: Choix[] };
 
-// Leurres : d'abord les espèces citées dans « confusions » de la fiche, puis le même genre, puis le reste
-const leurresPour = (a: Espece) => {
+// Type de dessous du chapeau, tiré du texte de la fiche
+const dessous = (e: Espece) => {
+  // On retire les négations (« pas de lames ni de tubes », « sans pores ni lames »)
+  const d = norm(e.f.d ?? "").replace(/(pas de|sans) [^,;.()]*/g, "");
+  if (/tubes|pores/.test(d)) return "tubes";
+  if (/aiguillons/.test(d)) return "aiguillons";
+  if (/lames/.test(d)) return "lames";
+  if (/plis/.test(d)) return "plis";
+  return "autre";
+};
+
+const citesDans = (a: Espece, autres: Espece[]) => {
   const cf = norm(a.f.cf ?? "");
+  return autres.filter((e) => cf.includes(norm(e.fr)) || cf.includes(norm(e.la)));
+};
+
+// Niveau 1 : espèces très différentes (autre genre, pas de sosie connu, dessous du chapeau différent si possible)
+const leurresFaciles = (a: Espece) => {
   const autres = pool.filter((e) => e.id !== a.id);
-  const cites = autres.filter((e) => cf.includes(norm(e.fr)) || cf.includes(norm(e.la)));
+  const cites = citesDans(a, autres);
+  const cand = shuffle(autres.filter((e) => !cites.includes(e) && genre(e) !== genre(a)));
+  const pris: Espece[] = [];
+  const types = new Set([dessous(a)]);
+  for (const e of cand) {
+    if (pris.length === 3) break;
+    if (!types.has(dessous(e)) && pris.every((p) => genre(p) !== genre(e))) { pris.push(e); types.add(dessous(e)); }
+  }
+  for (const e of cand) {
+    if (pris.length === 3) break;
+    if (!pris.includes(e) && pris.every((p) => genre(p) !== genre(e))) pris.push(e);
+  }
+  return pris;
+};
+
+// Niveau 2 : leurres tirés au hasard
+const leurresHasard = (a: Espece) => shuffle(pool.filter((e) => e.id !== a.id)).slice(0, 3);
+
+// Niveau 3 : d'abord les espèces citées dans « confusions » de la fiche, puis le même genre, puis le reste
+const leurresSosies = (a: Espece) => {
+  const autres = pool.filter((e) => e.id !== a.id);
+  const cites = citesDans(a, autres);
   const memeGenre = autres.filter((e) => !cites.includes(e) && genre(e) === genre(a));
   const reste = autres.filter((e) => !cites.includes(e) && !memeGenre.includes(e));
   return [...shuffle(cites), ...shuffle(memeGenre), ...shuffle(reste)].slice(0, 3);
 };
 
-const nouvelleQuestion = (deja: string[]): Q => {
+const LEURRES = [leurresFaciles, leurresHasard, leurresSosies];
+
+const nouvelleQuestion = (deja: string[], niveau: number): Q => {
   const libres = pool.filter((e) => !deja.includes(e.id));
   const answer = pickOne(libres.length ? libres : pool);
-  const choices = [answer, ...leurresPour(answer)].map((e) => ({ e, t: pickOne(photosJeu(e.id)) }));
+  const choices = [answer, ...LEURRES[niveau - 1](answer)].map((e) => ({ e, t: pickOne(photosJeu(e.id)) }));
   return { answer, choices: shuffle(choices) };
 };
 
@@ -46,13 +87,15 @@ export default function Jeu() {
   const [fini, setFini] = useState(false);
   const [deja, setDeja] = useState<string[]>([]);
 
-  const poser = useCallback((vus: string[]) => {
-    const nq = nouvelleQuestion(vus);
+  const poser = useCallback((vus: string[], num: number) => {
+    // Toutes les espèces vues : on recommence le tirage
+    const base = vus.length >= pool.length ? [] : vus;
+    const nq = nouvelleQuestion(base, niveauDe(num));
     setQ(nq);
-    setDeja([...vus, nq.answer.id]);
+    setDeja([...base, nq.answer.id]);
   }, []);
 
-  useEffect(() => { poser([]); }, [poser]);
+  useEffect(() => { poser([], 1); }, [poser]);
 
   const repondre = (id: string) => {
     if (pick || !q) return;
@@ -61,36 +104,41 @@ export default function Jeu() {
   };
 
   const suivante = () => {
-    if (n >= TOTAL) { setFini(true); return; }
-    setN((x) => x + 1);
+    setN(n + 1);
     setPick(null);
-    poser(deja);
+    poser(deja, n + 1);
   };
 
-  const rejouer = () => { setN(1); setScore(0); setPick(null); setFini(false); poser([]); };
+  const rejouer = () => { setN(1); setScore(0); setPick(null); setFini(false); poser([], 1); };
 
   if (!q) return <Shell tab="jeu"><p className="empty">Chargement…</p></Shell>;
 
   const ok = pick === q.answer.id;
+  const niveau = niveauDe(n);
+  const repondues = pick ? n : n - 1;
+  // Progression dans le niveau en cours (le dernier niveau n'a pas de fin)
+  const dansNiveau = niveau < NIVEAU_MAX ? (repondues - (niveau - 1) * PALIER) / PALIER : null;
   const cat = CATS.find((c) => c.key === q.answer.cat)!;
 
   return (
     <Shell tab="jeu">
       <header className="head">
         <div className="head-row">
-          <span className="mono">Question {n} / {TOTAL}</span>
-          <span className="mono" style={{ color: "var(--accent)" }}>Score {score}</span>
+          <span className="mono">Niveau {niveau} · Question {n}</span>
+          <span className="mono" style={{ color: "var(--accent)" }}>Score {score} / {repondues}</span>
         </div>
-        <div className="progress" role="progressbar" aria-label="Progression" aria-valuemin={0} aria-valuemax={TOTAL} aria-valuenow={n}>
-          <div style={{ width: `${(n / TOTAL) * 100}%` }} />
-        </div>
+        {!fini && dansNiveau !== null && (
+          <div className="progress" role="progressbar" aria-label={`Progression vers le niveau ${niveau + 1}`} aria-valuemin={0} aria-valuemax={PALIER} aria-valuenow={Math.round(dansNiveau * PALIER)}>
+            <div style={{ width: `${dansNiveau * 100}%` }} />
+          </div>
+        )}
       </header>
 
       <main className="wrap">
         {fini ? (
           <>
-            <h1>{score} / {TOTAL}</h1>
-            <p className="note">Partie terminée. Le jeu utilise pour l&apos;instant les {pool.length} espèces qui ont des photos.</p>
+            <h1>{score} / {repondues}</h1>
+            <p className="note">Partie terminée au niveau {niveau}. Le jeu utilise pour l&apos;instant les {pool.length} espèces qui ont des photos.</p>
             <button className="btn" onClick={rejouer}>Rejouer</button>
           </>
         ) : (
@@ -124,8 +172,9 @@ export default function Jeu() {
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <a className="btn btn-ghost" href={`/fiche?id=${q.answer.id}`}>Voir la fiche</a>
-                  <button className="btn" onClick={suivante}>{n >= TOTAL ? "Voir le score" : "Question suivante"}</button>
+                  <button className="btn" onClick={suivante}>{n % PALIER === 0 && niveau < NIVEAU_MAX ? `Passer au niveau ${niveau + 1}` : "Question suivante"}</button>
                 </div>
+                <button className="fin-partie" onClick={() => setFini(true)}>Terminer la partie</button>
               </>
             )}
           </>
