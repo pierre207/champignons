@@ -244,3 +244,33 @@ h1 { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.1; }
 .comp-r > span { min-width: 0; }
 /* Cadre « Ne pas confondre avec » cliquable */
 .alert-liens a { color: inherit; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: currentColor; font-weight: 600; }
+
+/* Panneau de la carte : indice du jour, 5 jours, notes */
+.esp-sel { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.esp-sel button { white-space: nowrap; font: inherit; font-size: 12.5px; padding: 6px 10px; border-radius: 14px; border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; }
+.esp-sel button.on { border-color: var(--accent); color: var(--accent-text); background: #2a2213; }
+.indice-jour { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; align-items: center; gap: 14px; }
+.indice-jour .v { white-space: nowrap; font-size: 40px; font-weight: 700; line-height: 1; color: var(--accent); }
+.indice-jour .v small { font-size: 15px; color: var(--muted); font-weight: 500; }
+.indice-jour p { margin: 4px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.35; }
+.indice-jour p.fort { color: var(--text); }
+.etiq { display: inline-block; padding: 3px 9px; border-radius: 12px; font-size: 12px; font-weight: 700; color: #1a1206; }
+.etiq-0 { background: #6b5a3a; color: var(--text); } .etiq-1 { background: #a06e2a; } .etiq-2 { background: #c98a32; } .etiq-3 { background: #f2a33a; } .etiq-4 { background: var(--ok); }
+.sec h3 { margin: 0 0 8px; font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: .04em; color: var(--muted); text-transform: uppercase; }
+.jours { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.jour { font: inherit; color: var(--text); cursor: pointer; border: 1px solid var(--line); border-radius: 8px; padding: 8px 2px 6px; display: flex; flex-direction: column; align-items: center; gap: 4px; background: var(--surface-2); }
+.jour.sel { border-color: var(--accent); background: #2a2213; }
+.jour.best { border-color: var(--ok); }
+.jour b { font-size: 12px; } .jour span { font-size: 11px; color: var(--muted); }
+.jour .col { width: 14px; height: 52px; background: var(--line-soft); border-radius: 3px; display: flex; align-items: flex-end; overflow: hidden; }
+.jour .col i { display: block; width: 100%; border-radius: 3px; }
+.jour em { font-style: normal; font-weight: 700; font-size: 15px; }
+.jour small { font-size: 10px; color: var(--ok); min-height: 12px; }
+.note-fac { display: flex; flex-direction: column; gap: 12px; }
+.fac .l { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; color: var(--muted); }
+.fac .l b { font-size: 14px; color: var(--text); }
+.fac .poids { font-family: var(--mono); font-size: 10px; color: var(--faint); }
+.jauge { position: relative; height: 8px; border-radius: 4px; background: var(--line-soft); margin: 7px 0 4px; }
+.jauge .ideal { position: absolute; top: 0; bottom: 0; background: #3b5c37; border-radius: 4px; }
+.jauge .pt { position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 7px; transform: translate(-50%, -50%); border: 2px solid var(--bg); }
+.bornes { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--faint); }

@@ -6,8 +6,8 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import Shell from "@/components/Shell";
 import RechercheLieu from "@/components/RechercheLieu";
 import { especes } from "@/data";
-import { CARTE, GROUPES, HORS_FORET } from "@/data/carte";
-import { PALIERS, classeEn, dessiner, grilleMeteo, indice, type Forets, type Grille, type Meteo, type Mode } from "@/lib/pousse";
+import { CARTE, GROUPES, HORS_FORET, PLUIE7, POIDS_NOTES, SOL_H, TEMP } from "@/data/carte";
+import { PALIERS, classeEn, detailEn, dessiner, grilleMeteo, indice, type Forets, type Grille, type Meteo, type Mode } from "@/lib/pousse";
 
 // Données par département (forêts) et par région (météo), chargées selon la zone affichée
 const ZOOM_MIN = 7; // en dessous, la couche n'est pas affichée (trop de départements à charger)
@@ -22,12 +22,51 @@ const CREDITS = "BD Forêt V2 © IGN · Météo Open-Meteo";
 
 type Etat = "chargement" | "pret" | "erreur";
 
+const JOURS = 5;
+const ETIQUETTES = ["Très défavorable", "Défavorable", "Moyen", "Favorable", "Très favorable"];
+const palier = (v: number) => (v < 25 ? 0 : v < 40 ? 1 : v < 60 ? 2 : v < 80 ? 3 : 4);
+const couleurIndice = (v: number) => (v < 25 ? "#4A3F27" : v < 45 ? "#a06e2a" : v < 75 ? "#c98a32" : "#f2a33a");
+const jourCourt = (d: string) => (d ? new Date(`${d}T12:00`).toLocaleDateString("fr-FR", { weekday: "short" }).replace(/^./, (c) => c.toUpperCase()) : "");
+const dateCourte = (d: string) => (d ? new Date(`${d}T12:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "");
+
+/** Phrase d'explication : la note la plus basse, puis la tendance. */
+function phrase(n: { solH: number; solT: number; pluie: number; saison: number }, cols: number[], jour: number, dates: string[]) {
+  if (n.saison === 0) return "Hors saison pour cette espèce.";
+  const causes = [
+    { v: n.solT, t: "sol trop froid ou trop chaud" }, { v: n.solH, t: "sol trop sec ou détrempé" },
+    { v: n.pluie, t: "peu de pluie ces 7 derniers jours" },
+  ].filter((c) => c.v < 0.5).sort((a, b) => a.v - b.v).map((c) => c.t);
+  const debut = causes.length ? `Frein principal : ${causes.slice(0, 2).join(", ")}.` : "Conditions réunies.";
+  const suite = cols.slice(jour + 1);
+  const max = suite.length ? Math.max(...suite) : 0;
+  const fin = max >= cols[jour] + 8 ? ` Hausse attendue d'ici ${jourCourt(dates[cols.indexOf(max, jour + 1)] ?? "").toLowerCase().replace(/\.$/, "") || "quelques jours"}.` : "";
+  return debut + fin;
+}
+
+/** Jauge d'une note : valeur, zone idéale, position. */
+function Jauge({ nom, poids, valeur, pos, ideal, note, bornes }: {
+  nom: string; poids: number; valeur: string; pos: number; ideal: [number, number]; note: number; bornes: [string, string, string];
+}) {
+  const p = Number.isNaN(pos) ? null : Math.min(Math.max(pos, 0), 1);
+  return (
+    <div className="fac">
+      <div className="l"><span>{nom}<span className="poids"> · {Math.round(poids * 100)} %</span></span><b>{valeur}</b></div>
+      <div className="jauge" aria-hidden="true">
+        <div className="ideal" style={{ left: `${ideal[0] * 100}%`, width: `${(ideal[1] - ideal[0]) * 100}%` }} />
+        {p !== null && <div className="pt" style={{ left: `${p * 100}%`, background: note >= 0.75 ? "var(--ok)" : note >= 0.4 ? "#c98a32" : "var(--danger)" }} />}
+      </div>
+      <div className="bornes"><span>{bornes[0]}</span><span>{bornes[1]}</span><span>{bornes[2]}</span></div>
+    </div>
+  );
+}
+
 export default function Carte() {
   const horsForet = useMemo(() => especes.filter((e) => HORS_FORET.includes(e.id)).map((e) => e.fr), []);
   const [gid, setGid] = useState(GROUPES[0].id);
   // Rendu « carreaux » conservé dans lib/pousse.ts mais masqué pour l’instant
   const mode: Mode = "foret";
-  const [jour, setJour] = useState<0 | 1>(0);
+  const [jour, setJour] = useState(0); // 0 = aujourd'hui … 4
+  const [espSel, setEspSel] = useState<string | null>(null); // null : meilleure espèce du groupe
   const [etat, setEtat] = useState<Etat>("chargement");
   const [centre, setCentre] = useState<{ lon: number; lat: number; zoom: number } | null>(null);
   const [vue, setVue] = useState<string[]>([]); // départements visibles
@@ -129,7 +168,7 @@ export default function Carte() {
   const membres = useMemo(() => groupe.especes.map((id) => especes.find((e) => e.id === id)!).filter(Boolean), [groupe]);
 
   // Grilles météo (par région, groupe et jour) pour chaque espèce du groupe
-  const couchesPour = (region: string, j: 0 | 1) => {
+  const couchesPour = (region: string, j: number) => {
     const m = meteos.current.get(region);
     if (!m) return null;
     const k = `${region}|${gid}|${j}`;
@@ -146,7 +185,7 @@ export default function Carte() {
     const map = carte.current;
     if (!pret || !map) return;
     const etiquettes = map.getStyle().layers.find((l) => l.type === "symbol")?.id;
-    const cle = `${gid}|${jour}`;
+    const cle = `${gid}|${jour}|${espSel ?? ""}`;
     for (const [code] of dessins.current) {
       if (vue.includes(code)) continue;
       if (map.getLayer(`pousse-${code}`)) map.removeLayer(`pousse-${code}`);
@@ -157,7 +196,8 @@ export default function Carte() {
     if (depts.current.size > 24) for (const code of depts.current.keys()) if (!vue.includes(code) && depts.current.size > 24) depts.current.delete(code);
     for (const code of vue) {
       const d = depts.current.get(code);
-      const couches = d && couchesPour(d.region, jour);
+      const toutes = d && couchesPour(d.region, jour);
+      const couches = toutes && (espSel ? toutes.filter((c) => c.e.id === espSel) : toutes);
       if (!d || !couches || dessins.current.get(code) === cle) continue;
       const canvas = document.createElement("canvas");
       dessiner(canvas, d.f, d.cls, meteos.current.get(d.region)!, couches, mode);
@@ -170,7 +210,7 @@ export default function Carte() {
       dessins.current.set(code, cle);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pret, vue, version, gid, jour]);
+  }, [pret, vue, version, gid, jour, espSel]);
 
   // Département chargé sous le centre de la carte (de préférence celui qui y a de la forêt)
   const ou = useMemo(() => {
@@ -186,24 +226,35 @@ export default function Carte() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [centre, version]);
 
-  // Indices au centre de la carte
+  // Indices au centre de la carte, pour chaque espèce du groupe et les 5 jours
   const ici = useMemo(() => {
     if (!centre || !ou || centre.zoom < ZOOM_MIN) return null;
     const d = depts.current.get(ou)!, m = meteos.current.get(d.region);
-    const c0 = couchesPour(d.region, 0), c1 = couchesPour(d.region, 1);
-    if (!m || !c0 || !c1) return null;
+    if (!m) return null;
+    const jours = Array.from({ length: Math.min(JOURS, m.dates.length - m.today) }, (_, j) => j);
+    const parJour = jours.map((j) => couchesPour(d.region, j));
+    if (parJour.some((c) => !c)) return null;
     let classe = 0;
-    const liste = c0.map((c, k) => {
-      const a = indice(d.f, d.cls, m, c.g, c.p, centre.lon, centre.lat);
-      const b = indice(d.f, d.cls, m, c1[k].g, c.p, centre.lon, centre.lat);
-      if (a) classe = a.classe;
-      return { e: c.e, auj: a ? Math.round(a.valeur * 100) : 0, dem: b ? Math.round(b.valeur * 100) : 0 };
-    });
-    if (!liste.length) return null;
-    liste.sort((x, y) => y.auj - x.auj || y.dem - x.dem || x.e.fr.localeCompare(y.e.fr));
-    return { classe, liste, auj: Math.max(...liste.map((l) => l.auj)), dem: Math.max(...liste.map((l) => l.dem)), m };
+    const liste = parJour[0]!.map((c, k) => ({
+      e: c.e, p: c.p,
+      vals: parJour.map((cj) => {
+        const r = indice(d.f, d.cls, m, cj![k].g, c.p, centre.lon, centre.lat);
+        if (r) classe = r.classe;
+        return r ? Math.round(r.valeur * 100) : 0;
+      }),
+    }));
+    return { classe, liste, m, dates: jours.map((j) => m.dates[m.today + j]) };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ou, centre, version, gid]);
+
+  // Meilleure espèce du jour affiché (option retenue : la carte montre le maximum du groupe)
+  const meilleure = ici ? ici.liste.reduce((a, b) => (b.vals[jour] > a.vals[jour] ? b : a)) : null;
+  const choisie = ici ? (espSel ? ici.liste.find((l) => l.e.id === espSel) ?? meilleure : meilleure) : null;
+  // Colonnes des 5 jours : maximum du groupe, ou espèce choisie
+  const colonnes = ici ? ici.dates.map((_, j) => (espSel && choisie ? choisie.vals[j] : Math.max(...ici.liste.map((l) => l.vals[j])))) : [];
+  const valeur = colonnes[jour] ?? 0;
+  const detail = ici && choisie && centre ? detailEn(ici.m, ici.m.today + jour, choisie.p, choisie.e, centre.lon, centre.lat) : null;
+  const meilleurJour = colonnes.length ? colonnes.indexOf(Math.max(...colonnes)) : -1;
 
   const m = ici?.m;
   const maj = m ? new Date(m.updated).toLocaleString("fr-FR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }) : "";
@@ -215,7 +266,7 @@ export default function Carte() {
         <div className="viseur" aria-hidden="true" />
 
         <div className="map-top">
-          <select value={gid} onChange={(e) => setGid(e.target.value)} aria-label="Groupe d'espèces affiché">
+          <select value={gid} onChange={(e) => { setGid(e.target.value); setEspSel(null); }} aria-label="Groupe d'espèces affiché">
             {GROUPES.map((g) => <option key={g.id} value={g.id}>{g.nom}</option>)}
           </select>
           <RechercheLieu
@@ -233,7 +284,7 @@ export default function Carte() {
 
       <section className="sheet" aria-labelledby="prev">
         <div className="head-row">
-          <h2 id="prev" style={{ margin: 0, fontSize: 17 }}>Probabilité de pousse</h2>
+          <h2 id="prev" style={{ margin: 0, fontSize: 17 }}>Indice de pousse</h2>
           <span className="mono">{ici ? NOMS_CLASSES[ici.classe] : ""}</span>
         </div>
         {etat === "erreur" ? (
@@ -243,38 +294,91 @@ export default function Carte() {
         ) : etat === "pret" && centre && vue.length === 0 ? (
           <p className="note">Pas encore de données pour cette zone : les régions sont ajoutées progressivement.</p>
         ) : (
-          <div className="prev" role="group" aria-label="Jour affiché sur la carte">
-            <button className={jour === 0 ? "today" : ""} aria-pressed={jour === 0} onClick={() => setJour(0)}>
-              <span className="lbl">Aujourd&apos;hui</span><span className="pct">{ici ? `${ici.auj}` : "–"}<small> /100</small></span>
-            </button>
-            <button className={jour === 1 ? "today" : ""} aria-pressed={jour === 1} onClick={() => setJour(1)}>
-              <span className="lbl">Demain</span><span className="pct">{ici ? `${ici.dem}` : "–"}<small> /100</small></span>
-            </button>
-          </div>
-        )}
-        {etat !== "erreur" && (
-          <div>
-            <h3 className="mono" style={{ margin: "4px 0 6px" }}>{groupe.nom} · {jour === 0 ? "aujourd'hui" : "demain"}</h3>
-            <ul className="classement">
-              {(ici?.liste ?? membres.map((e) => ({ e, auj: 0, dem: 0 })))
-                .slice().sort((x, y) => (jour === 0 ? y.auj - x.auj : y.dem - x.dem))
-                .map(({ e, auj, dem }) => {
-                  const v = jour === 0 ? auj : dem;
+          <>
+            <div className="esp-sel" role="group" aria-label="Espèce affichée">
+              {(ici?.liste ?? membres.map((e) => ({ e, vals: [] as number[] })))
+                .slice().sort((x, y) => (y.vals[jour] ?? 0) - (x.vals[jour] ?? 0))
+                .map(({ e }) => {
+                  const on = choisie?.e.id === e.id;
                   return (
-                    <li key={e.id}>
-                      <a href={`/fiche?id=${e.id}`}>
-                        <span className="nom">{e.fr}<span className="saison">{e.f.s}</span></span>
-                        <span className="barre" aria-hidden="true"><i style={{ width: `${v}%` }} /></span>
-                        <span className="val">{ici ? v : "–"}</span>
-                      </a>
-                    </li>
+                    <button key={e.id} type="button" className={on ? "on" : ""} aria-pressed={on}
+                      onClick={() => setEspSel(espSel === e.id || meilleure?.e.id === e.id ? null : e.id)}>
+                      {meilleure?.e.id === e.id ? "★ " : ""}{e.fr}
+                    </button>
                   );
                 })}
-            </ul>
-          </div>
+            </div>
+
+            <div className="indice-jour">
+              <div className="v">{ici ? valeur : "–"}<small> /100</small></div>
+              <div>
+                <span className={`etiq etiq-${palier(valeur)}`}>{ETIQUETTES[palier(valeur)]}</span>
+                {choisie && <p className="fort">{espSel ? `Espèce affichée : ${choisie.e.fr.toLowerCase()}.` : `Meilleure espèce du groupe ici : ${choisie.e.fr.toLowerCase()}.`}</p>}
+                {detail && <p>{phrase(detail.notes, colonnes, jour, ici!.dates)}</p>}
+              </div>
+            </div>
+
+            {colonnes.length > 0 && (
+              <div className="sec">
+                <h3>{colonnes.length} prochains jours</h3>
+                <div className="jours" role="group" aria-label="Jour affiché sur la carte">
+                  {colonnes.map((v, j) => (
+                    <button key={j} type="button" className={`jour${j === jour ? " sel" : ""}${j === meilleurJour && j !== jour ? " best" : ""}`}
+                      aria-pressed={j === jour} onClick={() => setJour(j)}>
+                      <b>{j === 0 ? "Auj." : jourCourt(ici!.dates[j])}</b>
+                      <span>{dateCourte(ici!.dates[j])}</span>
+                      <span className="col"><i style={{ height: `${v}%`, background: couleurIndice(v) }} /></span>
+                      <em>{v}</em>
+                      <small>{j === meilleurJour ? "meilleur" : j > 0 && v > colonnes[j - 1] ? "↗" : j > 0 && v < colonnes[j - 1] ? "↘" : ""}</small>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {detail && choisie && (
+              <div className="sec">
+                <h3>Pourquoi cet indice</h3>
+                <div className="note-fac">
+                  <Jauge nom="Humidité du sol" poids={POIDS_NOTES.solH} valeur={Number.isNaN(detail.brut.solH) ? "–" : `${Math.round(detail.brut.solH * 100)} %`}
+                    pos={detail.brut.solH / 0.5} ideal={[SOL_H[1] / 0.5, SOL_H[2] / 0.5]} note={detail.notes.solH} bornes={["Sec", "Idéal", "Saturé"]} />
+                  <Jauge nom="Température du sol" poids={POIDS_NOTES.solT} valeur={Number.isNaN(detail.brut.solT) ? "–" : `${Math.round(detail.brut.solT)} °C`}
+                    pos={detail.brut.solT / 25} ideal={[TEMP[choisie.p.profil][1] / 25, TEMP[choisie.p.profil][2] / 25]} note={detail.notes.solT}
+                    bornes={["0 °C", `Idéal ${TEMP[choisie.p.profil][1]}–${TEMP[choisie.p.profil][2]} °C`, "25 °C"]} />
+                  <Jauge nom="Pluie des 7 derniers jours" poids={POIDS_NOTES.pluie} valeur={Number.isNaN(detail.brut.pluie) ? "–" : `${Math.round(detail.brut.pluie)} mm`}
+                    pos={detail.brut.pluie / 60} ideal={[PLUIE7[0] / 60, PLUIE7[1] / 60]} note={detail.notes.pluie} bornes={["0 mm", `Idéal ${PLUIE7[0]}–${PLUIE7[1]} mm`, "60 mm"]} />
+                  <Jauge nom="Saison" poids={POIDS_NOTES.saison} valeur={detail.saisonPos < 0 ? "Hors saison" : detail.saisonPos < 0.3 ? "Début de saison" : detail.saisonPos <= 0.7 ? "Bonne période" : detail.saisonPos <= 1 ? "Fin de saison" : "Hors saison"}
+                    pos={(detail.saisonPos + 0.2) / 1.4} ideal={[0.5 / 1.4, 0.9 / 1.4]} note={detail.notes.saison} bornes={["Tôt", `Pic (${choisie.e.f.s ?? ""})`, "Tard"]} />
+                </div>
+                <p className="note" style={{ marginTop: 10 }}>
+                  Indice = moyenne pondérée des 4 notes, multipliée par l&apos;intérêt du type de forêt pour l&apos;espèce ({NOMS_CLASSES[ici!.classe].toLowerCase()}). Hors saison, pas d&apos;indice.
+                </p>
+              </div>
+            )}
+
+            <div className="sec">
+              <h3>{groupe.nom} · {jour === 0 ? "aujourd'hui" : `${jourCourt(ici?.dates[jour] ?? "")} ${dateCourte(ici?.dates[jour] ?? "")}`}</h3>
+              <ul className="classement">
+                {(ici?.liste ?? membres.map((e) => ({ e, vals: [] as number[] })))
+                  .slice().sort((x, y) => (y.vals[jour] ?? 0) - (x.vals[jour] ?? 0))
+                  .map(({ e, vals }) => {
+                    const v = vals[jour] ?? 0;
+                    return (
+                      <li key={e.id}>
+                        <a href={`/fiche?id=${e.id}`}>
+                          <span className="nom">{e.fr}<span className="saison">{e.f.s}</span></span>
+                          <span className="barre" aria-hidden="true"><i style={{ width: `${v}%` }} /></span>
+                          <span className="val">{ici ? v : "–"}</span>
+                        </a>
+                      </li>
+                    );
+                  })}
+              </ul>
+            </div>
+          </>
         )}
         <p className="note">
-          Indice au centre du viseur, pour l&apos;espèce la plus favorable du groupe. Estimation calculée à partir du type de forêt (IGN), de la pluie des 4 à 18 derniers jours (les plus anciens comptant moins), de la température et de la saison de chaque espèce. Ce n&apos;est pas une observation de terrain.{maj ? ` Météo mise à jour le ${maj}.` : ""}
+          Indice au centre du viseur. Estimation calculée à partir du type de forêt (IGN), de l&apos;humidité et de la température du sol, de la pluie des 7 derniers jours et de la saison de chaque espèce. Ce n&apos;est pas une observation de terrain.{maj ? ` Météo mise à jour le ${maj}.` : ""}
         </p>
         <p className="note">Non affichées (espèces de prairies, de jardins ou cultivées) : {horsForet.join(", ")}.</p>
       </section>

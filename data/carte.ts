@@ -15,20 +15,21 @@ export interface ParamCarte {
 const FOND = 0.08; // une forêt quelconque n'est jamais tout à fait nulle
 export const poids = (p: ParamCarte, classe: number) => (classe === 0 ? 0 : p.hotes[classe] ?? FOND);
 
-// Températures moyennes journalières (°C) : en dessous de min ou au-dessus de max, pas de pousse
+// Indice du jour = moyenne pondérée de 4 notes (0–1), multipliée par le poids de l'essence.
+// Hors saison (note de saison nulle), pas d'indice. Toutes les valeurs sont à valider avec le mycologue.
+export const POIDS_NOTES = { solH: 0.35, solT: 0.3, pluie: 0.15, saison: 0.2 };
+
+// Température du sol (°C, moyenne des 3 derniers jours) : nulle avant min et après max, idéale entre les deux valeurs centrales
 export const TEMP: Record<Profil, [number, number, number, number]> = {
-  ete: [10, 14, 22, 28],
+  ete: [8, 12, 20, 26],
   automne: [2, 6, 15, 21],
-  printemps: [5, 9, 16, 22],
-  hiver: [1, 4, 12, 18],
+  printemps: [4, 8, 15, 21],
+  hiver: [0, 3, 11, 17],
 };
-// Pluie cumulée (mm) entre 4 et 18 jours avant le jour considéré, pondérée par l'ancienneté (voir poidsPluie)
-export const PLUIE: Record<Profil, [number, number]> = {
-  ete: [15, 50],
-  automne: [10, 35],
-  printemps: [10, 35],
-  hiver: [10, 35],
-};
+// Humidité du sol (m³/m³, 3–9 cm, moyenne des 3 derniers jours) : sec, idéal, saturé
+export const SOL_H: [number, number, number, number] = [0.1, 0.22, 0.38, 0.5];
+// Pluie des 7 derniers jours (mm) : rien à 0, idéale entre les deux valeurs, un peu moins bonne au-delà (sol détrempé)
+export const PLUIE7: [number, number, number] = [20, 40, 80];
 
 const F = { 1: 1, 2: 1, 3: 1, 4: 0.8, 9: 0.9 }; // feuillus
 const C = { 6: 1, 7: 1, 8: 0.8, 9: 0.9 }; // conifères
