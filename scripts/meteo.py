@@ -65,7 +65,7 @@ def region(nom, deps, f, out):
     for i, j in cells:
         garde[max(0, j - j0 - MARGE):j - j0 + MARGE + 1, max(0, i - i0 - MARGE):i - i0 + MARGE + 1] = True
     pts = [(round((i0 + i) * STEP, 2), round((j0 + j) * STEP, 2)) for j in range(ny) for i in range(nx) if garde[j, i]]
-    rain, tmean, et0, dates = {}, {}, {}, None
+    rain, tmean, et0, elev, dates = {}, {}, {}, {}, None
     for k in range(0, len(pts), 100):
         lot = pts[k:k + 100]
         for p, r in zip(lot, appel(lot)):
@@ -73,12 +73,13 @@ def region(nom, deps, f, out):
             dates = dates or dd["time"]
             rain[p] = [round(v or 0, 1) for v in dd["precipitation_sum"]]
             tmean[p] = [None if v is None else round(v, 1) for v in dd["temperature_2m_mean"]]
+            elev[p] = r.get("elevation")
             et0[p] = [round(v or 0, 1) for v in dd["et0_fao_evapotranspiration"]]
         time.sleep(3)
     grille = [(round((i0 + i) * STEP, 2), round((j0 + j) * STEP, 2)) for j in range(ny) for i in range(nx)]
     data = {
         "region": nom, "lon0": round(i0 * STEP, 2), "lat0": round(j0 * STEP, 2), "step": STEP, "nx": nx, "ny": ny,
-        "dates": dates, "today": 14, "rain": [rain.get(p) for p in grille], "tmean": [tmean.get(p) for p in grille], "et0": [et0.get(p) for p in grille],
+        "dates": dates, "today": 14, "rain": [rain.get(p) for p in grille], "tmean": [tmean.get(p) for p in grille], "et0": [et0.get(p) for p in grille], "elev": [elev.get(p) for p in grille],
         "updated": datetime.now(timezone.utc).isoformat(timespec="minutes"),
         "source": "Open-Meteo (modèles Météo-France), CC BY 4.0",
     }

@@ -1,4 +1,4 @@
-import { BILAN, PLUIE, TEMP, poids, type ParamCarte } from "@/data/carte";
+import { BILAN, GRADIENT, MARGE_ALTITUDE, PLUIE, TEMP, plageAltitude, poids, type ParamCarte } from "@/data/carte";
 import type { Espece } from "@/data/types";
 
 export interface Forets {
@@ -14,7 +14,11 @@ export interface Meteo {
   rain: (number[] | null)[]; tmean: ((number | null)[] | null)[];
   /** Évaporation de référence (mm/jour), absente des fichiers plus anciens */
   et0?: (number[] | null)[];
+  /** Altitude (m) de chaque point de grille selon Open-Meteo, absente des fichiers plus anciens */
+  elev?: (number | null)[];
 }
+/** Altitude par pixel : valeur × 20 m ; 0 = inconnue. Même grille que le raster des forêts. */
+export type Altitude = Uint8Array | null;
 
 const R = 6378137;
 export const mercToLon = (x: number) => (x / R) * (180 / Math.PI);
@@ -36,33 +40,40 @@ export function saison(e: Espece, date: string) {
   return 0;
 }
 
-/** Facteur météo (0–1) pour un point de grille et un jour (index dans meteo.dates). */
-export function facteurMeteo(m: Meteo, point: number, jour: number, p: ParamCarte) {
+/** Grilles d'une espèce pour un jour : facteur pluie × saison, et température moyenne sur 7 jours. */
+export interface Grille {
+  fp: Float32Array; // 0–1
+  t: Float32Array; // °C, NaN si inconnue
+  temp: [number, number, number, number];
+  plage: [number, number];
+}
+
+/** Facteur pluie (bilan pluie − évaporation si disponible) et température moyenne en un point de grille. */
+function pointMeteo(m: Meteo, point: number, jour: number, p: ParamCarte): [number, number] {
   const pluie = m.rain[point];
   const temp = m.tmean[point];
-  if (!pluie || !temp) return 0;
-  // Bilan hydrique : pluie moins évaporation, si l'évaporation est disponible
+  if (!pluie || !temp) return [0, NaN];
   const et0 = m.et0?.[point];
   let cumul = 0;
   for (let d = jour - 14; d <= jour - 4; d++) if (d >= 0) cumul += (pluie[d] ?? 0) - (et0 ? et0[d] ?? 0 : 0);
   let ts = 0, n = 0;
   for (let d = jour - 6; d <= jour; d++) { const t = temp[d]; if (d >= 0 && t != null) { ts += t; n++; } }
-  if (!n) return 0;
-  const t = ts / n;
   const [rmin, ropt] = et0 ? BILAN : PLUIE[p.profil];
-  const fPluie = clamp((cumul - rmin) / (ropt - rmin));
-  const [t0, t1, t2, t3] = TEMP[p.profil];
-  const fTemp = t <= t0 || t >= t3 ? 0 : t < t1 ? (t - t0) / (t1 - t0) : t <= t2 ? 1 : (t3 - t) / (t3 - t2);
-  return fPluie * fTemp;
+  return [clamp((cumul - rmin) / (ropt - rmin)), n ? ts / n : NaN];
 }
 
-/** Grille des facteurs météo × saison pour un jour. */
-export function grilleMeteo(m: Meteo, jour: number, p: ParamCarte, e: Espece) {
+export function grilleMeteo(m: Meteo, jour: number, p: ParamCarte, e: Espece): Grille {
   const s = saison(e, m.dates[jour]);
-  const g = new Float32Array(m.nx * m.ny);
-  if (s > 0) for (let i = 0; i < g.length; i++) g[i] = facteurMeteo(m, i, jour, p) * s;
-  return g;
+  const fp = new Float32Array(m.nx * m.ny), t = new Float32Array(m.nx * m.ny).fill(NaN);
+  if (s > 0) for (let i = 0; i < fp.length; i++) { const [f, tt] = pointMeteo(m, i, jour, p); fp[i] = f * s; t[i] = tt; }
+  return { fp, t, temp: TEMP[p.profil], plage: plageAltitude(e.f.a) };
 }
+
+const fTemp = ([t0, t1, t2, t3]: [number, number, number, number], t: number) =>
+  t <= t0 || t >= t3 ? 0 : t < t1 ? (t - t0) / (t1 - t0) : t <= t2 ? 1 : (t3 - t) / (t3 - t2);
+
+const fAlt = ([a, b]: [number, number], z: number) =>
+  z < a ? clamp(1 - (a - z) / MARGE_ALTITUDE) : z > b ? clamp(1 - (z - b) / MARGE_ALTITUDE) : 1;
 
 /** Interpolation bilinéaire de la grille météo en (lon, lat). */
 export function echantillon(m: Meteo, g: Float32Array, lon: number, lat: number) {
@@ -73,6 +84,41 @@ export function echantillon(m: Meteo, g: Float32Array, lon: number, lat: number)
   return (g[i] * (1 - dx) + g[i + 1] * dx) * (1 - dy) + (g[i + m.nx] * (1 - dx) + g[i + m.nx + 1] * dx) * dy;
 }
 
+/** Interpolation bilinéaire qui ignore les points inconnus (NaN). */
+function echantillonNaN(m: Meteo, g: Float32Array, lon: number, lat: number) {
+  const fx = Math.min(Math.max((lon - m.lon0) / m.step, 0), m.nx - 1.001);
+  const fy = Math.min(Math.max((lat - m.lat0) / m.step, 0), m.ny - 1.001);
+  const x = Math.floor(fx), y = Math.floor(fy), dx = fx - x, dy = fy - y;
+  const i = y * m.nx + x;
+  let s = 0, w = 0;
+  const add = (v: number, k: number) => { if (!Number.isNaN(v) && k > 0) { s += v * k; w += k; } };
+  add(g[i], (1 - dx) * (1 - dy)); add(g[i + 1], dx * (1 - dy)); add(g[i + m.nx], (1 - dx) * dy); add(g[i + m.nx + 1], dx * dy);
+  return w ? s / w : NaN;
+}
+
+const altGrilles = new WeakMap<Meteo, Float32Array | null>();
+function altGrille(m: Meteo) {
+  if (!altGrilles.has(m)) altGrilles.set(m, m.elev ? Float32Array.from(m.elev, (v) => (v == null ? NaN : v)) : null);
+  return altGrilles.get(m)!;
+}
+
+/** Part météo de l'indice (0–1) en un point d'altitude z (m, NaN si inconnue). */
+function partMeteo(m: Meteo, g: Grille, lon: number, lat: number, z: number) {
+  const fp = echantillon(m, g.fp, lon, lat);
+  if (fp <= 0) return 0;
+  let t = echantillonNaN(m, g.t, lon, lat);
+  if (Number.isNaN(t)) return 0;
+  const za = altGrille(m);
+  if (za && !Number.isNaN(z)) {
+    // Température corrigée de l'écart entre l'altitude du point de forêt et celle du point de grille
+    const zg = echantillonNaN(m, za, lon, lat);
+    if (!Number.isNaN(zg)) t -= GRADIENT * (z - zg);
+  }
+  return fp * fTemp(g.temp, t) * (Number.isNaN(z) ? 1 : fAlt(g.plage, z));
+}
+
+const altPixel = (alt: Altitude, i: number) => (alt && alt[i] ? alt[i] * 20 : NaN);
+
 /** Classe d'essence en un point, ou null hors de l'emprise du raster. */
 export function classeEn(f: Forets, cls: Uint8Array, lon: number, lat: number) {
   const px = Math.floor((lonToMerc(lon) - f.merc[0]) / f.res);
@@ -82,12 +128,13 @@ export function classeEn(f: Forets, cls: Uint8Array, lon: number, lat: number) {
 }
 
 /** Indice de pousse (0–1) en un point. */
-export function indice(f: Forets, cls: Uint8Array, m: Meteo, g: Float32Array, p: ParamCarte, lon: number, lat: number) {
+export function indice(f: Forets, cls: Uint8Array, alt: Altitude, m: Meteo, g: Grille, p: ParamCarte, lon: number, lat: number) {
   const px = Math.floor((lonToMerc(lon) - f.merc[0]) / f.res);
   const py = Math.floor((f.merc[3] - latToMerc(lat)) / f.res);
   if (px < 0 || py < 0 || px >= f.width || py >= f.height) return null;
-  const c = cls[py * f.width + px];
-  return { classe: c, valeur: poids(p, c) * echantillon(m, g, lon, lat) };
+  const i = py * f.width + px, c = cls[i];
+  const w = poids(p, c);
+  return { classe: c, valeur: w ? w * partMeteo(m, g, lon, lat, altPixel(alt, i)) : 0 };
 }
 
 // Palette (identique au prototype) : faible, moyenne, élevée
@@ -116,23 +163,22 @@ function palier(v: number): [number, number, number, number] {
 export type Mode = "carreaux" | "foret";
 const BLOC = 6; // carreaux de 6 × 6 pixels (600 m Web Mercator, ≈ 400 m au sol)
 
-/** Dessine la couche de probabilité sur un canvas de la taille du raster des forêts. */
-export interface Couche { p: ParamCarte; g: Float32Array }
+export interface Couche { p: ParamCarte; g: Grille }
 
 /** Valeur maximale parmi les espèces d'un groupe, pour une classe d'essence et un point. */
-function maxCouches(pws: Float32Array[], gs: Float32Array[], c: number, m: Meteo, lon: number, lat: number) {
+function maxCouches(pws: Float32Array[], gs: Grille[], c: number, m: Meteo, lon: number, lat: number, z: number) {
   let v = 0;
   for (let k = 0; k < gs.length; k++) {
     const w = pws[k][c];
-    if (w <= v) continue; // l’échantillon météo ne dépasse jamais 1
-    const x = w * echantillon(m, gs[k], lon, lat);
+    if (w <= v) continue; // la part météo ne dépasse jamais 1
+    const x = w * partMeteo(m, gs[k], lon, lat, z);
     if (x > v) v = x;
   }
   return v;
 }
 
 /** Dessine la couche de probabilité (maximum des espèces fournies) sur un canvas de la taille du raster des forêts. */
-export function dessiner(canvas: HTMLCanvasElement, f: Forets, cls: Uint8Array, m: Meteo, couches: Couche[], mode: Mode) {
+export function dessiner(canvas: HTMLCanvasElement, f: Forets, cls: Uint8Array, alt: Altitude, m: Meteo, couches: Couche[], mode: Mode) {
   const { width: w, height: h } = f;
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d")!;
@@ -140,7 +186,7 @@ export function dessiner(canvas: HTMLCanvasElement, f: Forets, cls: Uint8Array, 
   for (let x = 0; x < w; x++) lons[x] = mercToLon(f.merc[0] + (x + 0.5) * f.res);
   for (let y = 0; y < h; y++) lats[y] = mercToLat(f.merc[3] - (y + 0.5) * f.res);
   // Les espèces hors saison (grille nulle) sont ignorées
-  const actives = couches.filter((c) => c.g.some((v) => v > 0));
+  const actives = couches.filter((c) => c.g.fp.some((v) => v > 0));
   const gs = actives.map((c) => c.g);
   const pws = actives.map((c) => { const a = new Float32Array(10); for (let k = 0; k < 10; k++) a[k] = poids(c.p, k); return a; });
 
@@ -151,7 +197,7 @@ export function dessiner(canvas: HTMLCanvasElement, f: Forets, cls: Uint8Array, 
     const val = new Float32Array(w * h);
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       const i = y * w + x;
-      if (cls[i]) val[i] = maxCouches(pws, gs, cls[i], m, lons[x], lats[y]);
+      if (cls[i]) val[i] = maxCouches(pws, gs, cls[i], m, lons[x], lats[y], altPixel(alt, i));
     }
     const lisse = flou(val, cls, w, h, 4);
     for (let i = 0; i < w * h; i++) {
@@ -173,7 +219,7 @@ export function dessiner(canvas: HTMLCanvasElement, f: Forets, cls: Uint8Array, 
       for (let k = 0; k < gs.length; k++) {
         let somme = 0;
         for (let c = 1; c < 10; c++) somme += nb[c] * pws[k][c];
-        const x = (somme / foret) * echantillon(m, gs[k], lons[cx | 0], lats[cy | 0]);
+        const x = (somme / foret) * partMeteo(m, gs[k], lons[cx | 0], lats[cy | 0], altPixel(alt, (cy | 0) * w + (cx | 0)));
         if (x > v) v = x;
       }
       const [r, gg, b, a] = palier(v);

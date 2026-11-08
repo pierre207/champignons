@@ -1,0 +1,37 @@
+name: Altitude
+
+# Altitude des départements qui n'en ont pas encore (après la génération mensuelle des forêts)
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 9 1 * *"  # le 1er de chaque mois, après les forêts
+  push:
+    branches: [main]
+    paths: ["scripts/altitude.py", ".github/workflows/altitude.yml"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: donnees
+  cancel-in-progress: false
+
+jobs:
+  altitude:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q rasterio numpy pillow
+      - name: Calculer l'altitude
+        run: python scripts/altitude.py
+      - name: Enregistrer
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/data
+          git diff --cached --quiet || git commit -m "Données altitude"
+          git pull --rebase -q && git push

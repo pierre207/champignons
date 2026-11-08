@@ -7,13 +7,13 @@ import Shell from "@/components/Shell";
 import RechercheLieu from "@/components/RechercheLieu";
 import { especes } from "@/data";
 import { CARTE, GROUPES, HORS_FORET } from "@/data/carte";
-import { PALIERS, classeEn, dessiner, grilleMeteo, indice, type Forets, type Meteo, type Mode } from "@/lib/pousse";
+import { PALIERS, classeEn, dessiner, grilleMeteo, indice, type Altitude, type Forets, type Grille, type Meteo, type Mode } from "@/lib/pousse";
 
 // Données par département (forêts) et par région (météo), chargées selon la zone affichée
 const ZOOM_MIN = 7; // en dessous, la couche n'est pas affichée (trop de départements à charger)
 const FRANCE: [number, number, number, number] = [-5.3, 41.3, 9.7, 51.2];
 interface Index { regions: Record<string, string>; depts: Record<string, Forets & { region: string }> }
-interface Dept { f: Forets; cls: Uint8Array; region: string }
+interface Dept { f: Forets; cls: Uint8Array; alt: Altitude; region: string }
 const NOMS_CLASSES = ["Hors forêt", "Chênes", "Hêtre", "Châtaignier", "Autres feuillus", "Peupliers, robiniers", "Pins", "Sapin, épicéa", "Douglas, mélèze", "Forêt mixte"];
 
 // Fond OpenFreeMap (style « Liberty », données OpenStreetMap), gratuit et sans clé
@@ -40,7 +40,7 @@ export default function Carte() {
   const meteos = useRef(new Map<string, Meteo>());
   const enCours = useRef(new Set<string>());
   const dessins = useRef(new Map<string, string>()); // département → clé groupe|jour déjà dessinée
-  const grilles = useRef(new Map<string, { e: (typeof especes)[number]; p: (typeof CARTE)[string]; g: Float32Array }[]>());
+  const grilles = useRef(new Map<string, { e: (typeof especes)[number]; p: (typeof CARTE)[string]; g: Grille }[]>());
   const [pret, setPret] = useState(false);
 
   // Paramètres d'URL et préférence de rendu
@@ -116,7 +116,19 @@ export default function Carte() {
           const rgba = cx.getImageData(0, 0, m.width, m.height).data;
           const cls = new Uint8Array(m.width * m.height);
           for (let i = 0; i < cls.length; i++) cls[i] = rgba[i * 4];
-          depts.current.set(code, { f: m, cls, region: m.region });
+          // Altitude (facultative : sans elle, pas de correction)
+          let alt: Altitude = null;
+          try {
+            const ia = new Image();
+            ia.src = `/data/altitude/d${code}.png`;
+            await ia.decode();
+            cx.clearRect(0, 0, m.width, m.height);
+            cx.drawImage(ia, 0, 0);
+            const ra = cx.getImageData(0, 0, m.width, m.height).data;
+            alt = new Uint8Array(m.width * m.height);
+            for (let i = 0; i < alt.length; i++) alt[i] = ra[i * 4];
+          } catch { /* pas encore générée */ }
+          depts.current.set(code, { f: m, cls, alt, region: m.region });
           setVersion((v) => v + 1);
         } finally {
           enCours.current.delete(code);
@@ -160,7 +172,7 @@ export default function Carte() {
       const couches = d && couchesPour(d.region, jour);
       if (!d || !couches || dessins.current.get(code) === cle) continue;
       const canvas = document.createElement("canvas");
-      dessiner(canvas, d.f, d.cls, meteos.current.get(d.region)!, couches, mode);
+      dessiner(canvas, d.f, d.cls, d.alt, meteos.current.get(d.region)!, couches, mode);
       const [x0, y0, x1, y1] = d.f.lonlat;
       const id = `pousse-${code}`;
       if (map.getLayer(id)) map.removeLayer(id);
@@ -194,8 +206,8 @@ export default function Carte() {
     if (!m || !c0 || !c1) return null;
     let classe = 0;
     const liste = c0.map((c, k) => {
-      const a = indice(d.f, d.cls, m, c.g, c.p, centre.lon, centre.lat);
-      const b = indice(d.f, d.cls, m, c1[k].g, c.p, centre.lon, centre.lat);
+      const a = indice(d.f, d.cls, d.alt, m, c.g, c.p, centre.lon, centre.lat);
+      const b = indice(d.f, d.cls, d.alt, m, c1[k].g, c.p, centre.lon, centre.lat);
       if (a) classe = a.classe;
       return { e: c.e, auj: a ? Math.round(a.valeur * 100) : 0, dem: b ? Math.round(b.valeur * 100) : 0 };
     });

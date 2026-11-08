@@ -105,3 +105,22 @@ export const GROUPES: { id: string; nom: string; especes: string[] }[] = [
 ];
 const classes = new Set(GROUPES.flatMap((g) => g.especes));
 GROUPES.push({ id: "autres", nom: "Autres comestibles", especes: Object.keys(CARTE).filter((id) => !classes.has(id)) });
+
+// Altitude
+/** Baisse de la température avec l'altitude (°C par mètre), gradient moyen de l'atmosphère. */
+export const GRADIENT = 0.0065;
+/** Marge (m) au-delà de la plage d'altitude d'une espèce : l'indice décroît jusqu'à 0 sur cette distance. */
+export const MARGE_ALTITUDE = 200;
+/** Plage d'altitude (m) d'après le champ « altitude » des fiches. À valider avec le mycologue. */
+export function plageAltitude(a?: string): [number, number] {
+  const t = (a ?? "").toLowerCase();
+  if (t.includes("climat doux")) return [0, 500];
+  if (t.startsWith("surtout plaine")) return [0, 600];
+  if (t.includes("plaine et collines")) return [0, 800];
+  if (t.includes("montagne moyenne")) return [0, 1300];
+  if (t.includes("plaine à montagne")) return [0, 1800];
+  if (t.includes("collines et montagne")) return [200, 1900];
+  if (t.includes("surtout montagne")) return [500, 2000];
+  if (t.includes("montagne")) return [700, 2000];
+  return [0, 2000];
+}
