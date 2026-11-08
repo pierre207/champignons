@@ -3,7 +3,7 @@ name: Météo
 on:
   workflow_dispatch:
   schedule:
-    - cron: "23 4,15 * * *"  # vers 5 h et 16 h (heure de Paris en hiver)
+    - cron: "7 6 * * *"  # 7 h (hiver) ou 8 h (été), heure de Paris
   push:
     branches: [main]
     paths: ["scripts/meteo.py", ".github/workflows/meteo.yml"]
@@ -12,24 +12,25 @@ permissions:
   contents: write
 
 concurrency:
-  group: meteo
+  group: donnees
   cancel-in-progress: false
 
 jobs:
   meteo:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - run: pip install -q numpy pillow
       - name: Récupérer la météo
-        run: python scripts/meteo.py --zone alsace
+        run: python scripts/meteo.py
       - name: Enregistrer
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add public/data
-          git diff --cached --quiet || git commit -m "Météo $(date -u +%F\ %H:%M)"
+          git diff --cached --quiet || git commit -m "Météo $(date -u +%F)"
           git pull --rebase -q && git push

@@ -1,13 +1,17 @@
 """Télécharge la BD Forêt V2 (IGN) pour des départements et produit une carte des essences.
 
-Sortie :
-  public/data/forets-<zone>.png   image 8 bits, une classe d'essence par pixel (0 = pas de forêt)
-  public/data/forets-<zone>.json  emprise (Web Mercator et WGS84), taille, légende des classes
+Sortie, une image par département :
+  public/data/forets/d<dep>.png   image 8 bits, une classe d'essence par pixel (0 = pas de forêt)
+  public/data/forets/d<dep>.json  emprise (Web Mercator et WGS84), taille, légende des classes
+  public/data/forets/index.json   tous les départements disponibles (lu par la carte)
 
-Usage : python scripts/forets.py --zone alsace --deps 67 68
+Usage : python scripts/forets.py --deps 67 68
 """
 import argparse, json, os, re, subprocess, sys, tempfile, unicodedata, urllib.request
 from pathlib import Path
+
+sys.path.insert(0, os.path.dirname(__file__))
+from regions import METEO, NOMS  # noqa: E402
 
 import geopandas as gpd
 import numpy as np
@@ -33,11 +37,12 @@ def get(url: str) -> bytes:
 
 def trouver_archive(dep: str) -> str:
     """Retourne l'URL de l'archive .7z SHP Lambert 93 du département."""
-    motif = re.compile(rf"BDFORET_2-0__SHP_LAMB93_D0?{int(dep):03d}_[0-9-]+")
+    code = dep.upper().zfill(3)  # 067, 02A
+    motif = re.compile(rf"BDFORET_2-0__SHP_LAMB93_D0?{code}_[0-9-]+")
     for liste in LISTINGS:
         try:
             # Le flux Atom de la Géoplateforme est paginé : on filtre par département
-            url = f"{liste}?zone=D{int(dep):03d}&format=SHP" if "geopf" in liste else liste
+            url = f"{liste}?zone=D{code}&format=SHP" if "geopf" in liste else liste
             txt = get(url).decode("utf-8", "replace")
         except Exception as e:  # noqa: BLE001
             print(f"[liste] {liste} : {e}")
@@ -124,40 +129,52 @@ def lire_departement(dep: str, tmp: Path) -> gpd.GeoDataFrame:
     return gdf[["classe", "geometry"]].to_crs(3857)
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--zone", required=True)
-    ap.add_argument("--deps", nargs="+", required=True)
-    ap.add_argument("--out", default="public/data")
-    a = ap.parse_args()
-
-    with tempfile.TemporaryDirectory() as t:
-        tmp = Path(t)
-        parts = [lire_departement(d, tmp) for d in a.deps]
-    gdf = gpd.pd.concat(parts, ignore_index=True)
+def raster(dep: str, gdf, out: str):
     minx, miny, maxx, maxy = gdf.total_bounds
     minx, miny = np.floor(minx / RES) * RES, np.floor(miny / RES) * RES
     maxx, maxy = np.ceil(maxx / RES) * RES, np.ceil(maxy / RES) * RES
     w, h = int((maxx - minx) / RES), int((maxy - miny) / RES)
-    print(f"[raster] {w} x {h} px")
+    print(f"[raster {dep}] {w} x {h} px")
     gdf = gdf.sort_values("classe")
     img = features.rasterize(((g, c) for g, c in zip(gdf.geometry, gdf["classe"])),
                              out_shape=(h, w), transform=from_origin(minx, maxy, RES, RES),
                              fill=0, dtype="uint8")
-
-    os.makedirs(a.out, exist_ok=True)
-    Image.fromarray(img, mode="L").save(f"{a.out}/forets-{a.zone}.png", optimize=True)
+    Image.fromarray(img, mode="L").save(f"{out}/d{dep}.png", optimize=True)
     lonlat = gpd.GeoSeries(gpd.points_from_xy([minx, maxx], [miny, maxy]), crs=3857).to_crs(4326)
     meta = {
-        "zone": a.zone, "deps": a.deps, "res": RES, "width": w, "height": h,
+        "dep": dep, "region": METEO[dep], "res": RES, "width": w, "height": h,
         "merc": [minx, miny, maxx, maxy],
-        "lonlat": [lonlat.x[0], lonlat.y[0], lonlat.x[1], lonlat.y[1]],
-        "classes": CLASSES,
+        "lonlat": [round(lonlat.x[0], 5), round(lonlat.y[0], 5), round(lonlat.x[1], 5), round(lonlat.y[1], 5)],
         "pixels": {CLASSES[i]: int((img == i).sum()) for i in range(len(CLASSES))},
-        "source": "BD Forêt V2, IGN (Licence ouverte Etalab 2.0)",
     }
-    json.dump(meta, open(f"{a.out}/forets-{a.zone}.json", "w"), ensure_ascii=False, indent=1)
-    print(json.dumps(meta["pixels"], indent=1))
+    json.dump(meta, open(f"{out}/d{dep}.json", "w"), ensure_ascii=False)
+
+
+def index(out: str):
+    """Rassemble les métadonnées de tous les départements générés."""
+    deps = {}
+    for f in sorted(Path(out).glob("d*.json")):
+        m = json.load(open(f))
+        deps[m["dep"]] = {k: m[k] for k in ("region", "res", "width", "height", "merc", "lonlat")}
+    regions = {r: NOMS[r] for r in sorted({d["region"] for d in deps.values()})}
+    json.dump({"classes": CLASSES, "regions": regions, "depts": deps,
+               "source": "BD Forêt V2, IGN (Licence ouverte Etalab 2.0)"},
+              open(f"{out}/index.json", "w"), ensure_ascii=False, separators=(",", ":"))
+    print(f"[index] {len(deps)} départements")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--deps", nargs="+", required=True)
+    ap.add_argument("--out", default="public/data/forets")
+    a = ap.parse_args()
+    os.makedirs(a.out, exist_ok=True)
+    for dep in a.deps:
+        dep = dep.upper()
+        with tempfile.TemporaryDirectory() as t:
+            gdf = lire_departement(dep, Path(t))
+            raster(dep, gdf, a.out)
+    index(a.out)
 
 
 if __name__ == "__main__":

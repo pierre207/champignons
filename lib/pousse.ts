@@ -5,11 +5,13 @@ export interface Forets {
   width: number; height: number; res: number;
   merc: [number, number, number, number];
   lonlat: [number, number, number, number];
-  classes: string[];
+  classes?: string[];
 }
 export interface Meteo {
   lon0: number; lat0: number; step: number; nx: number; ny: number;
-  dates: string[]; today: number; rain: number[][]; tmean: (number | null)[][]; updated: string;
+  dates: string[]; today: number; updated: string;
+  /** null : point de grille loin de toute forêt, non demandé */
+  rain: (number[] | null)[]; tmean: ((number | null)[] | null)[];
 }
 
 const R = 6378137;
@@ -34,6 +36,7 @@ export function saison(e: Espece, date: string) {
 export function facteurMeteo(m: Meteo, point: number, jour: number, p: ParamCarte) {
   const pluie = m.rain[point];
   const temp = m.tmean[point];
+  if (!pluie || !temp) return 0;
   let cumul = 0;
   for (let d = jour - 14; d <= jour - 4; d++) if (d >= 0) cumul += pluie[d] ?? 0;
   let ts = 0, n = 0;
@@ -62,6 +65,14 @@ export function echantillon(m: Meteo, g: Float32Array, lon: number, lat: number)
   const x = Math.floor(fx), y = Math.floor(fy), dx = fx - x, dy = fy - y;
   const i = y * m.nx + x;
   return (g[i] * (1 - dx) + g[i + 1] * dx) * (1 - dy) + (g[i + m.nx] * (1 - dx) + g[i + m.nx + 1] * dx) * dy;
+}
+
+/** Classe d'essence en un point, ou null hors de l'emprise du raster. */
+export function classeEn(f: Forets, cls: Uint8Array, lon: number, lat: number) {
+  const px = Math.floor((lonToMerc(lon) - f.merc[0]) / f.res);
+  const py = Math.floor((f.merc[3] - latToMerc(lat)) / f.res);
+  if (px < 0 || py < 0 || px >= f.width || py >= f.height) return null;
+  return cls[py * f.width + px];
 }
 
 /** Indice de pousse (0–1) en un point. */

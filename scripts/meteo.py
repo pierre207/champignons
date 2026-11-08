@@ -1,62 +1,107 @@
-"""Récupère pluie et température (14 jours passés + 3 jours de prévision) sur une grille.
+"""Récupère pluie et température (14 jours passés + 3 jours de prévision) sur une grille de 0,1°, par région.
 
-Sortie : public/data/meteo-<zone>.json
-Usage : python scripts/meteo.py --zone alsace
+Seuls les points proches d'une forêt sont demandés (les autres valent null), pour rester
+sous la limite gratuite d'Open-Meteo.
+
+Sortie : public/data/meteo/<region>.json
+Usage : python scripts/meteo.py                 toutes les régions qui ont des données forêts
+        python scripts/meteo.py --regions corse
 """
-import argparse, json, os, time, urllib.parse, urllib.request
+import argparse, json, math, os, time, urllib.parse, urllib.request
 from datetime import datetime, timezone
 
-ZONES = {
-    # lon min, lat min, lon max, lat max, pas en degrés
-    "alsace": (6.80, 47.40, 8.30, 49.10, 0.1),
-}
+import numpy as np
+from PIL import Image
+
 API = "https://api.open-meteo.com/v1/forecast"
+STEP = 0.1
+MARGE = 1  # points de grille conservés autour d'une forêt (interpolation bilinéaire)
+R = 6378137
+
+
+def merc_lon(x): return x / R * 180 / math.pi
+def merc_lat(y): return math.degrees(math.atan(math.sinh(y / R)))
+
+
+def presence(f, d, m):
+    """Cellules de 0,1° contenant de la forêt pour un département."""
+    img = np.array(Image.open(f"{f}/d{d}.png"))
+    ys, xs = np.nonzero(img[::5, ::5])  # un pixel sur 5 (500 m) suffit
+    res = m["res"] * 5
+    lon = np.degrees((m["merc"][0] + (xs + 0.5) * res) / R)
+    lat = np.degrees(np.arctan(np.sinh((m["merc"][3] - (ys + 0.5) * res) / R)))
+    return set(zip(np.round(lon / STEP).astype(int).tolist(), np.round(lat / STEP).astype(int).tolist()))
+
+
+def appel(lot):
+    q = urllib.parse.urlencode({
+        "latitude": ",".join(str(p[1]) for p in lot),
+        "longitude": ",".join(str(p[0]) for p in lot),
+        "daily": "precipitation_sum,temperature_2m_mean",
+        "past_days": 14, "forecast_days": 3, "timezone": "Europe/Paris",
+    })
+    req = urllib.request.Request(f"{API}?{q}", headers={"User-Agent": "champignons-carte/1.0"})
+    for essai in range(5):
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                res = json.load(r)
+            return res if isinstance(res, list) else [res]
+        except Exception as e:  # noqa: BLE001
+            print(f"[essai {essai + 1}] {e}")
+            time.sleep(30 * (essai + 1))
+    raise SystemExit("Open-Meteo injoignable")
+
+
+def region(nom, deps, f, out):
+    cells = set()
+    for d, m in deps.items():
+        cells |= presence(f, d, m)
+    if not cells:
+        return 0
+    i0, i1 = min(c[0] for c in cells) - MARGE, max(c[0] for c in cells) + MARGE
+    j0, j1 = min(c[1] for c in cells) - MARGE, max(c[1] for c in cells) + MARGE
+    nx, ny = i1 - i0 + 1, j1 - j0 + 1
+    garde = np.zeros((ny, nx), bool)
+    for i, j in cells:
+        garde[max(0, j - j0 - MARGE):j - j0 + MARGE + 1, max(0, i - i0 - MARGE):i - i0 + MARGE + 1] = True
+    pts = [(round((i0 + i) * STEP, 2), round((j0 + j) * STEP, 2)) for j in range(ny) for i in range(nx) if garde[j, i]]
+    rain, tmean, dates = {}, {}, None
+    for k in range(0, len(pts), 100):
+        lot = pts[k:k + 100]
+        for p, r in zip(lot, appel(lot)):
+            dd = r["daily"]
+            dates = dates or dd["time"]
+            rain[p] = [round(v or 0, 1) for v in dd["precipitation_sum"]]
+            tmean[p] = [None if v is None else round(v, 1) for v in dd["temperature_2m_mean"]]
+        time.sleep(3)
+    grille = [(round((i0 + i) * STEP, 2), round((j0 + j) * STEP, 2)) for j in range(ny) for i in range(nx)]
+    data = {
+        "region": nom, "lon0": round(i0 * STEP, 2), "lat0": round(j0 * STEP, 2), "step": STEP, "nx": nx, "ny": ny,
+        "dates": dates, "today": 14, "rain": [rain.get(p) for p in grille], "tmean": [tmean.get(p) for p in grille],
+        "updated": datetime.now(timezone.utc).isoformat(timespec="minutes"),
+        "source": "Open-Meteo (modèles Météo-France), CC BY 4.0",
+    }
+    json.dump(data, open(f"{out}/{nom}.json", "w"), separators=(",", ":"))
+    print(f"[{nom}] {len(pts)} points demandés sur {nx * ny}")
+    return len(pts)
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--zone", default="alsace")
-    ap.add_argument("--out", default="public/data")
+    ap.add_argument("--regions", nargs="*")
+    ap.add_argument("--forets", default="public/data/forets")
+    ap.add_argument("--out", default="public/data/meteo")
     a = ap.parse_args()
-    x0, y0, x1, y1, step = ZONES[a.zone]
-    nx, ny = round((x1 - x0) / step) + 1, round((y1 - y0) / step) + 1
-    pts = [(round(y0 + j * step, 3), round(x0 + i * step, 3)) for j in range(ny) for i in range(nx)]
-    rain, tmean, dates = [], [], None
-    for k in range(0, len(pts), 100):
-        lot = pts[k:k + 100]
-        q = urllib.parse.urlencode({
-            "latitude": ",".join(str(p[0]) for p in lot),
-            "longitude": ",".join(str(p[1]) for p in lot),
-            "daily": "precipitation_sum,temperature_2m_mean",
-            "past_days": 14, "forecast_days": 3, "timezone": "Europe/Paris",
-        })
-        req = urllib.request.Request(f"{API}?{q}", headers={"User-Agent": "champignons-carte/1.0"})
-        for essai in range(3):
-            try:
-                with urllib.request.urlopen(req, timeout=120) as r:
-                    res = json.load(r)
-                break
-            except Exception as e:  # noqa: BLE001
-                print(f"[essai {essai + 1}] {e}")
-                time.sleep(20)
-        else:
-            raise SystemExit("Open-Meteo injoignable")
-        res = res if isinstance(res, list) else [res]
-        for r in res:
-            d = r["daily"]
-            dates = dates or d["time"]
-            rain.append([round(v or 0, 1) for v in d["precipitation_sum"]])
-            tmean.append([None if v is None else round(v, 1) for v in d["temperature_2m_mean"]])
-        time.sleep(2)
+    if not os.path.exists(f"{a.forets}/index.json"):
+        print("Pas encore de données forêts")
+        return
+    idx = json.load(open(f"{a.forets}/index.json"))
     os.makedirs(a.out, exist_ok=True)
-    out = {
-        "zone": a.zone, "lon0": x0, "lat0": y0, "step": step, "nx": nx, "ny": ny,
-        "dates": dates, "today": 14, "rain": rain, "tmean": tmean,
-        "updated": datetime.now(timezone.utc).isoformat(timespec="minutes"),
-        "source": "Open-Meteo (modèles Météo-France), CC BY 4.0",
-    }
-    json.dump(out, open(f"{a.out}/meteo-{a.zone}.json", "w"), separators=(",", ":"))
-    print(f"{len(rain)} points, {len(dates)} jours ({dates[0]} → {dates[-1]})")
+    total = 0
+    for r in a.regions or idx["regions"]:
+        deps = {d: m for d, m in idx["depts"].items() if m["region"] == r}
+        total += region(r, deps, a.forets, a.out)
+    print(f"Total : {total} points")
 
 
 if __name__ == "__main__":
