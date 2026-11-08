@@ -188,3 +188,47 @@ h1 { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.1; }
 .map-wrap .lieux { top: 52px; }
 .map-wrap .maplibregl-ctrl-top-right { top: 64px; }
 .fin-partie { align-self: center; background: none; border: 0; padding: 6px 10px; font: inherit; font-size: 13px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+
+/* Lexique */
+.lex { padding: 8px 16px 20px; display: flex; flex-direction: column; gap: 18px; }
+.lex-schema { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.lex-schema svg { display: block; width: 100%; height: auto; font-family: "IBM Plex Sans", system-ui, sans-serif; }
+.lex-sec { display: flex; flex-direction: column; gap: 10px; }
+.lex-sec h2 { font-size: 17px; margin: 0; }
+.lex-dessous { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.lex-dessous div { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.lex-dessous svg { width: 100%; height: auto; border-radius: 6px; background: #2c3631; }
+.lex-dessous b { font-size: 14px; }
+.lex-dessous span { font-size: 12px; color: var(--muted); line-height: 1.35; }
+.lex-mots { margin: 0; display: flex; flex-direction: column; }
+.lex-mots div { display: grid; grid-template-columns: 92px 1fr; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line-soft); }
+.lex-mots dt { font-weight: 600; font-size: 14px; }
+.lex-mots dd { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.4; }
+.lex-modal { position: fixed; inset: 0; z-index: 50; background: var(--bg); overflow-y: auto; overscroll-behavior: contain; }
+.lex-modal-h { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; background: var(--bg); border-bottom: 1px solid var(--line-soft); }
+.lex-modal-h h2 { margin: 0; font-size: 18px; }
+.lex-fermer { width: 40px; height: 40px; border-radius: 20px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font-size: 16px; cursor: pointer; flex: none; }
+
+/* Jeu : aide, bouton suivant toujours visible, correction */
+.aide { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; padding: 4px 0; font: inherit; font-size: 13px; color: var(--accent); cursor: pointer; }
+.aide i { font-style: normal; width: 18px; height: 18px; border-radius: 9px; border: 1px solid var(--accent); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+.suite { position: sticky; bottom: 76px; z-index: 5; display: flex; box-shadow: 0 0 0 8px var(--bg); }
+.suite .btn { flex: 1; }
+.comp { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.comp-h, .comp-r { display: grid; grid-template-columns: 74px 1fr 1fr; gap: 8px; padding: 10px; }
+.comp-h { align-items: center; border-bottom: 1px solid var(--line); }
+.comp-who { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; line-height: 1.2; }
+.comp-who .th { width: 36px; height: 36px; border-radius: 4px; overflow: hidden; flex: none; border: 2px solid; }
+.comp-who.ko .th { border-color: var(--danger); } .comp-who.ok .th { border-color: var(--ok); }
+.comp-who small { display: block; font-weight: 400; font-size: 11px; }
+.comp-who.ko small { color: var(--danger); } .comp-who.ok small { color: var(--ok); }
+.comp-r { border-top: 1px solid var(--line-soft); font-size: 13px; line-height: 1.4; }
+.comp-h + .comp-r { border-top: 0; }
+.comp-r > b { font-family: var(--mono); font-size: 10.5px; color: var(--muted); font-weight: 500; letter-spacing: .04em; text-transform: uppercase; padding-top: 2px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.comp-r.cle { background: #2a2213; border-left: 3px solid var(--accent); padding-left: 7px; }
+.comp-r.cle > b { color: var(--accent-text); }
+.cletag { white-space: nowrap; font-size: 9px; color: #1a1206; background: var(--accent); border-radius: 3px; padding: 1px 4px; }
+.mot { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-decoration: underline dotted var(--accent); text-underline-offset: 3px; cursor: pointer; }
+.retenir { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 14px; line-height: 1.45; background: var(--surface-2); }
+.retenir b { display: block; font-family: var(--mono); font-size: 11px; color: var(--muted); font-weight: 500; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 3px; }
+.lien-fiche { font-size: 13px; }

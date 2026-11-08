@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Shell from "@/components/Shell";
 import { CATS, especes, type Espece } from "@/data";
 import { aPhotos, photosJeu, tuileStyle, type Tuile } from "@/data/photos";
+import { LexiqueContenu, avecMots } from "@/components/Lexique";
 
 // Partie sans fin : le niveau monte toutes les 5 réponses, jusqu'au niveau 3
 const PALIER = 5;
@@ -79,6 +80,46 @@ const nouvelleQuestion = (deja: string[], niveau: number): Q => {
   return { answer, choices: shuffle(choices) };
 };
 
+const LIGNES: { cle: string; nom: string; val: (e: Espece) => string | undefined }[] = [
+  { cle: "d", nom: "Dessous", val: (e) => e.f.d },
+  { cle: "c", nom: "Chapeau", val: (e) => e.f.c ?? e.f.co },
+  { cle: "p", nom: "Pied", val: (e) => e.f.p },
+  { cle: "ch", nom: "Chair", val: (e) => e.f.ch },
+];
+
+/** Comparaison entre l'espèce choisie par erreur et la bonne réponse. */
+function Comparaison({ choix, bonne, ouvrirLexique }: { choix: Choix; bonne: Choix; ouvrirLexique: () => void }) {
+  // Critère clé : le dessous du chapeau, quand les deux espèces en ont un et qu'il diffère (lames, tubes, plis, aiguillons)
+  const [da, db] = [dessous(choix.e), dessous(bonne.e)];
+  const cle = da !== "autre" && db !== "autre" && da !== db ? "d" : null;
+  const lignes = LIGNES.filter((l) => l.val(choix.e) || l.val(bonne.e));
+  const cite = (a: Espece, b: Espece) => !!a.f.r && (norm(a.f.r).includes(norm(b.fr)) || norm(a.f.r).includes(norm(b.la)));
+  const retenir = cite(choix.e, bonne.e) ? choix.e.f.r : cite(bonne.e, choix.e) ? bonne.e.f.r : bonne.e.f.r;
+  return (
+    <>
+      <div className="comp">
+        <div className="comp-h">
+          <span />
+          {[{ c: choix, cls: "ko", txt: "votre choix" }, { c: bonne, cls: "ok", txt: "bonne réponse" }].map(({ c, cls, txt }) => (
+            <div key={cls} className={`comp-who ${cls}`}>
+              <span className="th"><span className="tuile" style={tuileStyle(c.t)} /></span>
+              <span>{c.e.fr}<small>{txt}</small></span>
+            </div>
+          ))}
+        </div>
+        {lignes.map((l) => (
+          <div key={l.cle} className={`comp-r${cle === l.cle ? " cle" : ""}`}>
+            <b>{l.nom}{cle === l.cle && <span className="cletag">CRITÈRE CLÉ</span>}</b>
+            <span>{avecMots(l.val(choix.e) ?? "–", ouvrirLexique)}</span>
+            <span>{avecMots(l.val(bonne.e) ?? "–", ouvrirLexique)}</span>
+          </div>
+        ))}
+      </div>
+      {retenir && <div className="retenir"><b>À retenir</b>{retenir}</div>}
+    </>
+  );
+}
+
 export default function Jeu() {
   const [q, setQ] = useState<Q | null>(null);
   const [n, setN] = useState(1);
@@ -86,6 +127,14 @@ export default function Jeu() {
   const [pick, setPick] = useState<string | null>(null);
   const [fini, setFini] = useState(false);
   const [deja, setDeja] = useState<string[]>([]);
+  const [lexique, setLexique] = useState(false);
+
+  useEffect(() => {
+    if (!lexique) return;
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setLexique(false); };
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [lexique]);
 
   const poser = useCallback((vus: string[], num: number) => {
     // Toutes les espèces vues : on recommence le tirage
@@ -144,7 +193,10 @@ export default function Jeu() {
         ) : (
           <>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <span className="note">Trouvez la bonne photo :</span>
+              <div className="head-row" style={{ alignItems: "center" }}>
+                <span className="note">Trouvez la bonne photo :</span>
+                <button type="button" className="aide" onClick={() => setLexique(true)}><i aria-hidden="true">?</i>Vocabulaire</button>
+              </div>
               <div className="q-row">
                 <h1 className="q-title">{q.answer.fr}</h1>
                 <span className={`badge b-${q.answer.cat}`}>{cat.court.toUpperCase()}</span>
@@ -164,22 +216,38 @@ export default function Jeu() {
                 );
               })}
             </div>
-            {pick && (
-              <>
-                <div className={`feedback ${ok ? "ok" : "ko"}`} aria-live="polite">
-                  <strong>{ok ? "Bonne réponse." : `Raté : vous avez choisi ${q.choices.find((c) => c.e.id === pick)!.e.fr}.`}</strong>{" "}
-                  {q.answer.fr} : {cat.court.toLowerCase()}{q.answer.mortel ? ", mortel" : ""}.{q.answer.f.r ? ` ${q.answer.f.r}` : ""}
-                </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <a className="btn btn-ghost" href={`/fiche?id=${q.answer.id}`}>Voir la fiche</a>
-                  <button className="btn" onClick={suivante}>{n % PALIER === 0 && niveau < NIVEAU_MAX ? `Passer au niveau ${niveau + 1}` : "Question suivante"}</button>
-                </div>
-                <button className="fin-partie" onClick={() => setFini(true)}>Terminer la partie</button>
-              </>
-            )}
+            {pick && (() => {
+              const choix = q.choices.find((c) => c.e.id === pick)!;
+              const bonne = q.choices.find((c) => c.e.id === q.answer.id)!;
+              return (
+                <>
+                  <div className={`feedback ${ok ? "ok" : "ko"}`} aria-live="polite">
+                    <strong>{ok ? "Bonne réponse." : `Raté : vous avez choisi ${choix.e.fr}.`}</strong>{" "}
+                    {q.answer.fr} : {cat.court.toLowerCase()}{q.answer.mortel ? ", mortel" : ""}.
+                    {ok ? (q.answer.f.r ? ` ${q.answer.f.r}` : "") : " Voici comment les distinguer."}
+                  </div>
+                  <div className="suite">
+                    <button className="btn" onClick={suivante}>{n % PALIER === 0 && niveau < NIVEAU_MAX ? `Passer au niveau ${niveau + 1}` : "Question suivante"}</button>
+                  </div>
+                  {!ok && <Comparaison choix={choix} bonne={bonne} ouvrirLexique={() => setLexique(true)} />}
+                  <a className="lien-fiche" href={`/fiche?id=${q.answer.id}`}>Voir la fiche complète : {q.answer.fr}</a>
+                  <button className="fin-partie" onClick={() => setFini(true)}>Terminer la partie</button>
+                </>
+              );
+            })()}
           </>
         )}
       </main>
+
+      {lexique && (
+        <div className="lex-modal" role="dialog" aria-modal="true" aria-labelledby="lex-titre">
+          <div className="lex-modal-h">
+            <h2 id="lex-titre">Les parties d&apos;un champignon</h2>
+            <button type="button" className="lex-fermer" onClick={() => setLexique(false)} aria-label="Fermer le vocabulaire" autoFocus>✕</button>
+          </div>
+          <LexiqueContenu />
+        </div>
+      )}
     </Shell>
   );
 }
