@@ -1,4 +1,4 @@
-import { PLUIE, TEMP, poids, type ParamCarte } from "@/data/carte";
+import { BILAN, PLUIE, TEMP, poids, type ParamCarte } from "@/data/carte";
 import type { Espece } from "@/data/types";
 
 export interface Forets {
@@ -12,6 +12,8 @@ export interface Meteo {
   dates: string[]; today: number; updated: string;
   /** null : point de grille loin de toute forêt, non demandé */
   rain: (number[] | null)[]; tmean: ((number | null)[] | null)[];
+  /** Évaporation de référence (mm/jour), absente des fichiers plus anciens */
+  et0?: (number[] | null)[];
 }
 
 const R = 6378137;
@@ -22,13 +24,15 @@ export const latToMerc = (lat: number) => R * Math.log(Math.tan(Math.PI / 4 + (l
 
 const clamp = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
-/** Facteur de saison : 1 dans la période, 0,4 le mois avant ou après, 0 sinon. */
+/** Facteur de saison : 1 dans la période, 0,8 le mois avant ou après, 0 sinon.
+ *  Borne souple : la saison se décale selon les régions (plus tardive au sud, plus précoce en montagne),
+ *  c'est la température locale qui décide dans ce mois de marge. */
 export function saison(e: Espece, date: string) {
   const m = Number(date.slice(5, 7));
   const [a, b] = e.mois;
   const dans = (x: number) => (a <= b ? x >= a && x <= b : x >= a || x <= b);
   if (dans(m)) return 1;
-  if (dans(m === 12 ? 1 : m + 1) || dans(m === 1 ? 12 : m - 1)) return 0.4;
+  if (dans(m === 12 ? 1 : m + 1) || dans(m === 1 ? 12 : m - 1)) return 0.8;
   return 0;
 }
 
@@ -37,13 +41,15 @@ export function facteurMeteo(m: Meteo, point: number, jour: number, p: ParamCart
   const pluie = m.rain[point];
   const temp = m.tmean[point];
   if (!pluie || !temp) return 0;
+  // Bilan hydrique : pluie moins évaporation, si l'évaporation est disponible
+  const et0 = m.et0?.[point];
   let cumul = 0;
-  for (let d = jour - 14; d <= jour - 4; d++) if (d >= 0) cumul += pluie[d] ?? 0;
+  for (let d = jour - 14; d <= jour - 4; d++) if (d >= 0) cumul += (pluie[d] ?? 0) - (et0 ? et0[d] ?? 0 : 0);
   let ts = 0, n = 0;
   for (let d = jour - 6; d <= jour; d++) { const t = temp[d]; if (d >= 0 && t != null) { ts += t; n++; } }
   if (!n) return 0;
   const t = ts / n;
-  const [rmin, ropt] = PLUIE[p.profil];
+  const [rmin, ropt] = et0 ? BILAN : PLUIE[p.profil];
   const fPluie = clamp((cumul - rmin) / (ropt - rmin));
   const [t0, t1, t2, t3] = TEMP[p.profil];
   const fTemp = t <= t0 || t >= t3 ? 0 : t < t1 ? (t - t0) / (t1 - t0) : t <= t2 ? 1 : (t3 - t) / (t3 - t2);

@@ -1,4 +1,4 @@
-"""Récupère pluie et température (14 jours passés + 3 jours de prévision) sur une grille de 0,1°, par région.
+"""Récupère pluie, évaporation (ET0) et température (14 jours passés + 3 jours de prévision) sur une grille de 0,1°, par région.
 
 Seuls les points proches d'une forêt sont demandés (les autres valent null), pour rester
 sous la limite gratuite d'Open-Meteo.
@@ -37,7 +37,7 @@ def appel(lot):
     q = urllib.parse.urlencode({
         "latitude": ",".join(str(p[1]) for p in lot),
         "longitude": ",".join(str(p[0]) for p in lot),
-        "daily": "precipitation_sum,temperature_2m_mean",
+        "daily": "precipitation_sum,temperature_2m_mean,et0_fao_evapotranspiration",
         "past_days": 14, "forecast_days": 3, "timezone": "Europe/Paris",
     })
     req = urllib.request.Request(f"{API}?{q}", headers={"User-Agent": "champignons-carte/1.0"})
@@ -65,7 +65,7 @@ def region(nom, deps, f, out):
     for i, j in cells:
         garde[max(0, j - j0 - MARGE):j - j0 + MARGE + 1, max(0, i - i0 - MARGE):i - i0 + MARGE + 1] = True
     pts = [(round((i0 + i) * STEP, 2), round((j0 + j) * STEP, 2)) for j in range(ny) for i in range(nx) if garde[j, i]]
-    rain, tmean, dates = {}, {}, None
+    rain, tmean, et0, dates = {}, {}, {}, None
     for k in range(0, len(pts), 100):
         lot = pts[k:k + 100]
         for p, r in zip(lot, appel(lot)):
@@ -73,11 +73,12 @@ def region(nom, deps, f, out):
             dates = dates or dd["time"]
             rain[p] = [round(v or 0, 1) for v in dd["precipitation_sum"]]
             tmean[p] = [None if v is None else round(v, 1) for v in dd["temperature_2m_mean"]]
+            et0[p] = [round(v or 0, 1) for v in dd["et0_fao_evapotranspiration"]]
         time.sleep(3)
     grille = [(round((i0 + i) * STEP, 2), round((j0 + j) * STEP, 2)) for j in range(ny) for i in range(nx)]
     data = {
         "region": nom, "lon0": round(i0 * STEP, 2), "lat0": round(j0 * STEP, 2), "step": STEP, "nx": nx, "ny": ny,
-        "dates": dates, "today": 14, "rain": [rain.get(p) for p in grille], "tmean": [tmean.get(p) for p in grille],
+        "dates": dates, "today": 14, "rain": [rain.get(p) for p in grille], "tmean": [tmean.get(p) for p in grille], "et0": [et0.get(p) for p in grille],
         "updated": datetime.now(timezone.utc).isoformat(timespec="minutes"),
         "source": "Open-Meteo (modèles Météo-France), CC BY 4.0",
     }
