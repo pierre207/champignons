@@ -16,7 +16,7 @@ export default function Shell({ tab, children }: { tab?: Tab; children: ReactNod
   return (
     <div className="app">
       <div className="banner" role="note">
-        Prototype : fiches et photos non encore validées par un mycologue.
+        Ne jamais consommer un champignon sur la seule foi de cette application.
       </div>
       {children}
       <nav className="tabbar" aria-label="Navigation principale">
