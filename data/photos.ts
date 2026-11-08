@@ -1,7 +1,7 @@
 import raw from "./photos.json";
 
 // Une planche verticale de tuiles carrées par espèce : f.jpg (fiche), j.jpg (jeu), t.jpg (vignette)
-type Entry = { f: string[]; j: number };
+type Entry = { f: string[]; j: number; dp?: { d?: string; p?: string } };
 const data = raw as Record<string, Entry>;
 
 export interface Tuile { url: string; i: number; n: number }
@@ -18,3 +18,12 @@ export const tuileStyle = (t: Tuile) => ({
   backgroundPosition: `0 ${t.n > 1 ? (t.i / (t.n - 1)) * 100 : 0}%`,
 });
 export const commons = (o: string) => `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(o.replace(/ /g, "_"))}`;
+
+/** Photos du dessous du chapeau et du pied (planche dp.jpg : dessous puis pied, selon ce qui existe). */
+export const photosDP = (id: string): { d?: Tuile; p?: Tuile } => {
+  const dp = data[id]?.dp;
+  if (!dp) return {};
+  const cles = (["d", "p"] as const).filter((k) => k in dp);
+  const t = (k: "d" | "p") => (k in dp ? { url: base(id) + "dp.jpg", i: cles.indexOf(k), n: cles.length } : undefined);
+  return { d: t("d"), p: t("p") };
+};

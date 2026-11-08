@@ -234,3 +234,11 @@ h1 { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.1; }
 .lien-fiche { font-size: 13px; }
 /* Lexique en surimpression : même largeur que l'application sur grand écran */
 .lex-modal > * { max-width: 480px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
+/* Photos du dessous et du pied */
+.photos-dp { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; padding: 6px 16px 4px; }
+.photos-dp figure { min-width: 0; }
+.photos-dp figure { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.photos-dp .tuile { aspect-ratio: 1; height: auto; border-radius: 4px; }
+.photos-dp figcaption { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
+.comp-ph { display: block; width: 100%; height: auto; aspect-ratio: 1; border-radius: 4px; margin-top: 6px; }
+.comp-r > span { min-width: 0; }

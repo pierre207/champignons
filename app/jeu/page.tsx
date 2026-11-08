@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Shell from "@/components/Shell";
 import { CATS, especes, type Espece } from "@/data";
-import { aPhotos, photosJeu, tuileStyle, type Tuile } from "@/data/photos";
+import { aPhotos, photosDP, photosJeu, tuileStyle, type Tuile } from "@/data/photos";
 import { LexiqueContenu, avecMots } from "@/components/Lexique";
 import { critereCle } from "@/data/criteres";
 
@@ -112,8 +112,15 @@ function Comparaison({ choix, bonne, ouvrirLexique }: { choix: Choix; bonne: Cho
         {lignes.map((l) => (
           <div key={l.cle} className={`comp-r${cle === l.cle ? " cle" : ""}`}>
             <b>{l.nom}{cle === l.cle && <span className="cletag">CRITÈRE CLÉ</span>}</b>
-            <span>{avecMots(l.val(choix.e) ?? "–", ouvrirLexique)}</span>
-            <span>{avecMots(l.val(bonne.e) ?? "–", ouvrirLexique)}</span>
+            {[choix.e, bonne.e].map((e) => {
+              const ph = l.cle === "d" ? photosDP(e.id).d : l.cle === "p" ? photosDP(e.id).p : undefined;
+              return (
+                <span key={e.id}>
+                  {avecMots(l.val(e) ?? "–", ouvrirLexique)}
+                  {ph && <span className="comp-ph tuile" role="img" aria-label={`${e.fr}, ${l.nom.toLowerCase()}`} style={tuileStyle(ph)} />}
+                </span>
+              );
+            })}
           </div>
         ))}
       </div>
