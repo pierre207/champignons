@@ -23,7 +23,7 @@ a { color: var(--accent); }
 button { font: inherit; color: inherit; }
 .app { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; padding-bottom: 76px; }
 .mono { font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; color: var(--muted); text-transform: uppercase; }
-.banner { background: var(--accent-soft); color: var(--accent-text); font-size: 12px; padding: 8px 16px; border-bottom: 1px solid #5a4220; line-height: 1.4; }
+.banner { background: var(--danger-bg); color: #ffb4a8; font-size: 12px; padding: 8px 16px; border-bottom: 1px solid #6a2a22; line-height: 1.4; text-align: center; text-wrap: balance; }
 
 /* Barre du bas */
 .tabbar { position: fixed; left: 0; right: 0; bottom: 0; height: 68px; background: var(--surface); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(3, 1fr); z-index: 20; }
