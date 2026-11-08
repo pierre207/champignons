@@ -85,9 +85,11 @@ export default function Fiche() {
 
         {photos.length > 0 && (
           <p className="note credits">
-            Photos : Wikimedia Commons ({photos.map((p, i) => (
-              <span key={i}>{i ? ", " : ""}<a href={commons(p.o)} target="_blank" rel="noopener">{i + 1}</a></span>
-            ))}). Auteurs et licences à reporter.
+            {photos.some((p) => p.o) ? (
+              <>Photos : Wikimedia Commons ({photos.map((p, i) => (
+                <span key={i}>{i ? ", " : ""}{p.o ? <a href={commons(p.o)} target="_blank" rel="noopener">{i + 1}</a> : i + 1}</span>
+              ))}). Auteurs et licences à reporter.</>
+            ) : <>Photos : source à préciser.</>}
           </p>
         )}
 
