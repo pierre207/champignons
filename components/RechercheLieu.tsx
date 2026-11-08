@@ -7,6 +7,10 @@ const API = "https://data.geopf.fr/geocodage/completion";
 
 export interface Lieu { nom: string; detail: string; lon: number; lat: number; commune: boolean }
 
+const TYPES: Record<string, string> = {
+  administratif: "commune", municipality: "commune", street: "rue", locality: "lieu-dit", housenumber: "adresse",
+};
+
 interface Resultat {
   x: number; y: number; fulltext: string; kind?: string; poiType?: string[]; country?: string;
 }
@@ -32,13 +36,15 @@ export default function RechercheLieu({ onChoix, zone }: { onChoix: (l: Lieu) =>
         const res = (j.results ?? [])
           .map((p) => {
             const [nom, ...reste] = p.fulltext.split(", ");
-            const type = p.poiType?.[0] ?? (p.kind === "street" ? "rue" : p.kind);
+            const type = TYPES[p.kind ?? ""] ?? p.poiType?.[0] ?? p.kind;
             return {
               nom, detail: [reste.join(", "), type].filter(Boolean).join(" · "),
               lon: p.x, lat: p.y, commune: p.kind === "administratif" || p.kind === "municipality", dedans: dans(p.x, p.y),
             };
           })
           .sort((a, b) => Number(b.dedans) - Number(a.dedans))
+          // Un même lieu revient souvent plusieurs fois (commune, lieu-dit, adresse) : on garde le premier
+          .filter((l, i, t) => t.findIndex((o) => o.nom === l.nom && Math.abs(o.lon - l.lon) < 0.03 && Math.abs(o.lat - l.lat) < 0.03) === i)
           .slice(0, 6);
         setLieux(res);
         setErreur(false);
