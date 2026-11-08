@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import Shell from "@/components/Shell";
 import { CATS, especes, parId, type Espece } from "@/data";
 import { commons, photosFiche, tuileStyle } from "@/data/photos";
@@ -9,6 +9,41 @@ const ROWS: [keyof Espece["f"], string][] = [
   ["c", "CHAPEAU / FORME"], ["co", "COULEUR"], ["d", "DESSOUS"], ["p", "PIED"], ["ch", "CHAIR"],
   ["h", "HABITAT"], ["s", "SAISON"], ["a", "ALTITUDE"],
 ];
+
+// Normalisation caractère par caractère (sans accents, minuscules) : les positions restent alignées sur le texte d'origine
+const plat = (t: string) => Array.from(t, (c) => c.normalize("NFD")[0].toLowerCase()).join("");
+
+/** Espèces citées dans le texte « confusions », avec leur position. */
+function cites(texte: string, soi: Espece) {
+  const t = plat(texte);
+  const trouves: { e: Espece; i: number; n: number }[] = [];
+  const noms = especes.filter((x) => x.id !== soi.id)
+    .flatMap((x) => [x.fr, x.fr.replace(/\s*\(.*\)/, ""), x.la].map((nom) => ({ x, nom: plat(nom) })))
+    .sort((a, b) => b.nom.length - a.nom.length); // les noms longs d'abord (« pied de mouton roux » avant « pied de mouton »)
+  for (const { x, nom } of noms) {
+    let i = t.indexOf(nom);
+    while (i >= 0) {
+      const libre = trouves.every((f) => i + nom.length <= f.i || i >= f.i + f.n);
+      const mot = !/[a-z]/.test(t[i - 1] ?? "") && !/[a-z]/.test(t[i + nom.length] ?? "");
+      if (libre && mot) trouves.push({ e: x, i, n: nom.length });
+      i = t.indexOf(nom, i + 1);
+    }
+  }
+  return trouves.sort((a, b) => a.i - b.i);
+}
+
+/** Texte des confusions avec les espèces citées en liens vers leur fiche. */
+function avecLiens(texte: string, liste: ReturnType<typeof cites>): ReactNode {
+  const out: ReactNode[] = [];
+  let k = 0;
+  liste.forEach(({ e, i, n }, j) => {
+    out.push(<Fragment key={`t${j}`}>{texte.slice(k, i)}</Fragment>);
+    out.push(<a key={`a${j}`} href={`/fiche?id=${e.id}`}>{texte.slice(i, i + n)}</a>);
+    k = i + n;
+  });
+  out.push(<Fragment key="fin">{texte.slice(k)}</Fragment>);
+  return out;
+}
 
 export default function Fiche() {
   const [e, setE] = useState<Espece | null | undefined>(undefined);
@@ -60,14 +95,29 @@ export default function Fiche() {
           <span className="la">{e.la}</span>
         </div>
 
-        {e.f.cf && (
-          <section className={`alert ${e.cat === "toxique" ? "alert-danger" : "alert-warn"}`} aria-labelledby="conf">
-            <div>
-              <h2 id="conf">{e.cat === "toxique" ? "Peut être confondu avec" : "Ne pas confondre avec"}</h2>
-              <p>{e.f.cf}</p>
-            </div>
-          </section>
-        )}
+        {e.f.cf && (() => {
+          const liste = cites(e.f.cf, e);
+          const autres = Array.from(new Set(liste.map((l) => l.e.id)));
+          const titre = e.cat === "toxique" ? "Peut être confondu avec" : "Ne pas confondre avec";
+          const cls = `alert ${e.cat === "toxique" ? "alert-danger" : "alert-warn"}`;
+          // Une seule espèce citée : tout le cadre mène à sa fiche ; plusieurs : un lien par espèce
+          return autres.length === 1 ? (
+            <a className={`${cls} alert-lien`} href={`/fiche?id=${autres[0]}`} aria-labelledby="conf">
+              <div>
+                <h2 id="conf">{titre}</h2>
+                <p>{e.f.cf}</p>
+              </div>
+              <span className="alert-fleche" aria-hidden="true">›</span>
+            </a>
+          ) : (
+            <section className={cls} aria-labelledby="conf">
+              <div>
+                <h2 id="conf">{titre}</h2>
+                <p className="alert-liens">{avecLiens(e.f.cf, liste)}</p>
+              </div>
+            </section>
+          );
+        })()}
 
         <dl className="grid">
           {ROWS.filter(([k]) => e.f[k]).map(([k, label]) => (

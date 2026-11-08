@@ -242,3 +242,8 @@ h1 { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.1; }
 .photos-dp figcaption { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
 .comp-ph { display: block; width: 100%; height: auto; aspect-ratio: 1; border-radius: 4px; margin-top: 6px; }
 .comp-r > span { min-width: 0; }
+/* Cadre « Ne pas confondre avec » cliquable */
+.alert-lien { color: var(--text); text-decoration: none; align-items: center; justify-content: space-between; }
+.alert-lien:hover, .alert-lien:focus-visible { filter: brightness(1.15); }
+.alert-fleche { font-size: 26px; line-height: 1; color: var(--muted); flex: none; }
+.alert-liens a { color: inherit; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: currentColor; font-weight: 600; }
