@@ -16,7 +16,7 @@ export default function Shell({ tab, children }: { tab?: Tab; children: ReactNod
   return (
     <div className="app">
       <div className="banner" role="note">
-        Ne jamais consommer un champignon sur la seule foi de cette application.
+        Ne jamais consommer un champignon sur la seule foi de ce site.
       </div>
       {children}
       <nav className="tabbar" aria-label="Navigation principale">
