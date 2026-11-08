@@ -174,3 +174,7 @@ h1 { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.1; }
 .lieux button span { font-size: 15px; font-weight: 600; }
 .lieux button small { font-size: 12px; color: var(--muted); }
 .lieux .vide { padding: 10px 14px; font-size: 13px; color: var(--muted); }
+.map-wrap .legend { width: 112px; padding: 5px 7px; gap: 3px; bottom: 36px; left: 8px; border-radius: 4px; }
+.legend-titre { font-size: 10px; color: var(--muted); line-height: 1.1; }
+.map-wrap .legend-bar { height: 5px; border-radius: 3px; }
+.legend-bornes { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); line-height: 1; }

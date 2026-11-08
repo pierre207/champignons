@@ -144,9 +144,9 @@ export default function Carte() {
         </div>
 
         <div className="legend">
-          <span className="mono" style={{ fontSize: 11 }}>Indice de pousse</span>
+          <span className="legend-titre">Indice de pousse</span>
           <span className="legend-bar" style={{ background: `linear-gradient(90deg, ${PALIERS.map((p) => p.couleur).join(", ")})` }} />
-          <div style={{ display: "flex", justifyContent: "space-between" }}><span>Faible</span><span>Élevé</span></div>
+          <div className="legend-bornes"><span>Faible</span><span>Élevé</span></div>
         </div>
       </div>
 
