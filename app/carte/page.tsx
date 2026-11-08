@@ -158,7 +158,7 @@ export default function Carte() {
 
       <section className="sheet" aria-labelledby="prev">
         <div className="head-row">
-          <h2 id="prev" style={{ margin: 0, fontSize: 17 }}>Au centre de la carte</h2>
+          <h2 id="prev" style={{ margin: 0, fontSize: 17 }}>Probabilité de pousse</h2>
           <span className="mono">{ici ? NOMS_CLASSES[ici.classe] : ""}</span>
         </div>
         {etat === "sans-donnees" ? (
