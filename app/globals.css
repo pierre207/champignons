@@ -180,3 +180,10 @@ h1 { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.1; }
 .legend-bornes { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); line-height: 1; }
 /* Bouton (i) des crédits centré sur le cadre de la légende */
 .map-wrap .maplibregl-ctrl-bottom-right { bottom: 35.5px; }
+/* Menu des groupes et recherche côte à côte (60 / 40) */
+.map-wrap .map-top { flex-direction: row; }
+.map-wrap .map-top select { flex: 3 1 0; min-width: 0; height: 44px; text-overflow: ellipsis; }
+.map-wrap .recherche-lieu { flex: 2 1 0; min-width: 0; position: static; }
+.map-wrap .recherche-lieu .search { padding: 0 10px; gap: 8px; }
+.map-wrap .lieux { top: 52px; }
+.map-wrap .maplibregl-ctrl-top-right { top: 64px; }
