@@ -95,29 +95,15 @@ export default function Fiche() {
           <span className="la">{e.la}</span>
         </div>
 
-        {e.f.cf && (() => {
-          const liste = cites(e.f.cf, e);
-          const autres = Array.from(new Set(liste.map((l) => l.e.id)));
-          const titre = e.cat === "toxique" ? "Peut être confondu avec" : "Ne pas confondre avec";
-          const cls = `alert ${e.cat === "toxique" ? "alert-danger" : "alert-warn"}`;
-          // Une seule espèce citée : tout le cadre mène à sa fiche ; plusieurs : un lien par espèce
-          return autres.length === 1 ? (
-            <a className={`${cls} alert-lien`} href={`/fiche?id=${autres[0]}`} aria-labelledby="conf">
-              <div>
-                <h2 id="conf">{titre}</h2>
-                <p>{e.f.cf}</p>
-              </div>
-              <span className="alert-fleche" aria-hidden="true">›</span>
-            </a>
-          ) : (
-            <section className={cls} aria-labelledby="conf">
-              <div>
-                <h2 id="conf">{titre}</h2>
-                <p className="alert-liens">{avecLiens(e.f.cf, liste)}</p>
-              </div>
-            </section>
-          );
-        })()}
+        {e.f.cf && (
+          <section className={`alert ${e.cat === "toxique" ? "alert-danger" : "alert-warn"}`} aria-labelledby="conf">
+            <div>
+              <h2 id="conf">{e.cat === "toxique" ? "Peut être confondu avec" : "Ne pas confondre avec"}</h2>
+              {/* Chaque espèce citée renvoie vers sa fiche */}
+              <p className="alert-liens">{avecLiens(e.f.cf, cites(e.f.cf, e))}</p>
+            </div>
+          </section>
+        )}
 
         <dl className="grid">
           {ROWS.filter(([k]) => e.f[k]).map(([k, label]) => (
