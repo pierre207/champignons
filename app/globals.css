@@ -178,5 +178,5 @@ h1 { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.1; }
 .legend-titre { font-size: 10px; color: var(--muted); line-height: 1.1; }
 .map-wrap .legend-bar { height: 5px; border-radius: 3px; }
 .legend-bornes { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); line-height: 1; }
-/* Bouton (i) des crédits centré sur la légende */
-.map-wrap .maplibregl-ctrl-bottom-right { bottom: 34px; }
+/* Bouton (i) des crédits centré sur le cadre de la légende */
+.map-wrap .maplibregl-ctrl-bottom-right { bottom: 35.5px; }
