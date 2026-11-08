@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Map as MLMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import Shell from "@/components/Shell";
+import RechercheLieu from "@/components/RechercheLieu";
 import { especes } from "@/data";
 import { CARTE, GROUPES, HORS_FORET } from "@/data/carte";
 import { PALIERS, dessiner, grilleMeteo, indice, type Forets, type Meteo, type Mode } from "@/lib/pousse";
@@ -136,7 +137,10 @@ export default function Carte() {
           <select value={gid} onChange={(e) => setGid(e.target.value)} aria-label="Groupe d'espèces affiché">
             {GROUPES.map((g) => <option key={g.id} value={g.id}>{g.nom}</option>)}
           </select>
-          <span className="chip">{etat === "sans-donnees" ? "DONNÉES EN PRÉPARATION" : `ALSACE · ${jour === 0 ? "AUJOURD'HUI" : "DEMAIN"} · ESTIMATION`}</span>
+          <RechercheLieu
+            zone={etat === "pret" ? donnees.current?.f.lonlat : undefined}
+            onChoix={(l) => carte.current?.flyTo({ center: [l.lon, l.lat], zoom: l.commune ? 11.5 : 13.5, essential: true })}
+          />
         </div>
 
         <div className="legend">
