@@ -129,7 +129,7 @@ function Comparaison({ choix, bonne, ouvrirLexique }: { choix: Choix; bonne: Cho
   );
 }
 
-export default function Jeu() {
+export default function Quiz() {
   const [q, setQ] = useState<Q | null>(null);
   const [n, setN] = useState(1);
   const [score, setScore] = useState(0);
@@ -169,7 +169,7 @@ export default function Jeu() {
 
   const rejouer = () => { setN(1); setScore(0); setPick(null); setFini(false); poser([], 1); };
 
-  if (!q) return <Shell tab="jeu"><p className="empty">Chargement…</p></Shell>;
+  if (!q) return <Shell tab="quiz"><p className="empty">Chargement…</p></Shell>;
 
   const ok = pick === q.answer.id;
   const niveau = niveauDe(n);
@@ -179,7 +179,7 @@ export default function Jeu() {
   const cat = CATS.find((c) => c.key === q.answer.cat)!;
 
   return (
-    <Shell tab="jeu">
+    <Shell tab="quiz">
       <header className="head">
         <div className="head-row">
           <span className="mono">Niveau {niveau} · Question {n}</span>
@@ -196,7 +196,7 @@ export default function Jeu() {
         {fini ? (
           <>
             <h1>{score} / {repondues}</h1>
-            <p className="note">Partie terminée au niveau {niveau}. Le jeu utilise pour l&apos;instant les {pool.length} espèces qui ont des photos.</p>
+            <p className="note">Partie terminée au niveau {niveau}. Le quiz utilise pour l&apos;instant les {pool.length} espèces qui ont des photos.</p>
             <button className="btn" onClick={rejouer}>Rejouer</button>
           </>
         ) : (

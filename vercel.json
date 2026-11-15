@@ -1,0 +1,5 @@
+{
+  "redirects": [
+    { "source": "/jeu", "destination": "/quiz", "permanent": true }
+  ]
+}

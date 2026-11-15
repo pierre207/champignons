@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-type Tab = "especes" | "carte" | "jeu";
+type Tab = "especes" | "carte" | "quiz";
 
 const IconMush = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 11a8 6 0 0 1 16 0z" /><path d="M10 11v7a2 2 0 0 0 4 0v-7" /></svg>
@@ -22,7 +22,7 @@ export default function Shell({ tab, children }: { tab?: Tab; children: ReactNod
       <nav className="tabbar" aria-label="Navigation principale">
         <a href="/" aria-current={tab === "especes" ? "page" : undefined}><IconMush />Espèces</a>
         <a href="/carte" aria-current={tab === "carte" ? "page" : undefined}><IconMap />Carte</a>
-        <a href="/jeu" aria-current={tab === "jeu" ? "page" : undefined}><IconGame />Jeu</a>
+        <a href="/quiz" aria-current={tab === "quiz" ? "page" : undefined}><IconGame />Quiz</a>
       </nav>
     </div>
   );

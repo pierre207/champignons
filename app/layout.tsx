@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 export const metadata = {
   title: "Champignons — prototype",
-  description: "Prototype : espèces, fiches, carte de démonstration et jeu.",
+  description: "Prototype : espèces, fiches, carte de démonstration et quiz.",
 };
 
 export const viewport = { width: "device-width", initialScale: 1, themeColor: "#121815" };
