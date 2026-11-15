@@ -391,7 +391,7 @@ export default function Carte() {
                     const v = vals[jour] ?? 0;
                     return (
                       <li key={e.id}>
-                        <a href={`/fiche?id=${e.id}`}>
+                        <a href={`/champignons/${e.id}`}>
                           <span className="nom">{e.fr}<span className="saison">{e.f.s}</span></span>
                           <span className="barre" aria-hidden="true"><i style={{ width: `${v}%` }} /></span>
                           <span className="val">{ici ? v : "–"}</span>

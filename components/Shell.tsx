@@ -19,6 +19,7 @@ export default function Shell({ tab, children }: { tab?: Tab; children: ReactNod
         Ne jamais consommer un champignon sur la seule foi de ce site.
       </div>
       {children}
+      <footer className="pied"><a href="/mentions-legales">Mentions légales</a></footer>
       <nav className="tabbar" aria-label="Navigation principale">
         <a href="/" aria-current={tab === "especes" ? "page" : undefined}><IconMush />Espèces</a>
         <a href="/carte" aria-current={tab === "carte" ? "page" : undefined}><IconMap />Carte</a>

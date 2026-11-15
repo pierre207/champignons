@@ -239,7 +239,7 @@ export default function Quiz() {
                     <button className="btn" onClick={suivante}>{n % PALIER === 0 && niveau < NIVEAU_MAX ? `Passer au niveau ${niveau + 1}` : "Question suivante"}</button>
                   </div>
                   {!ok && <Comparaison choix={choix} bonne={bonne} ouvrirLexique={() => setLexique(true)} />}
-                  <a className="lien-fiche" href={`/fiche?id=${q.answer.id}`}>Voir la fiche complète : {q.answer.fr}</a>
+                  <a className="lien-fiche" href={`/champignons/${q.answer.id}`}>Voir la fiche complète : {q.answer.fr}</a>
                   <button className="fin-partie" onClick={() => setFini(true)}>Terminer la partie</button>
                 </>
               );

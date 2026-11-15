@@ -37,11 +37,11 @@ h1 { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.1; }
 .search { display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 14px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; }
 .search input { border: 0; background: transparent; font: inherit; font-size: 16px; color: var(--text); flex: 1; outline: none; min-width: 0; }
 .seg { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 3px; gap: 3px; }
-.seg button { height: 44px; border: 0; border-radius: 4px; background: transparent; font-size: 14px; cursor: pointer; }
-.seg button[aria-pressed="true"] { font-weight: 700; color: #0e1a0d; }
-.seg button[aria-pressed="true"].c-comestible { background: var(--ok); }
-.seg button[aria-pressed="true"].c-eviter { background: var(--warn); }
-.seg button[aria-pressed="true"].c-toxique { background: var(--danger); }
+.seg a { height: 44px; border: 0; border-radius: 4px; background: transparent; font-size: 14px; display: flex; align-items: center; justify-content: center; color: var(--text); text-decoration: none; }
+.seg a[aria-current="page"] { font-weight: 700; color: #0e1a0d; }
+.seg a[aria-current="page"].c-comestible { background: var(--ok); }
+.seg a[aria-current="page"].c-eviter { background: var(--warn); }
+.seg a[aria-current="page"].c-toxique { background: var(--danger); }
 .toggle { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
 .toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
 
@@ -274,3 +274,10 @@ h1 { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.1; }
 .jauge .ideal { position: absolute; top: 0; bottom: 0; background: #3b5c37; border-radius: 4px; }
 .jauge .pt { position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 7px; transform: translate(-50%, -50%); border: 2px solid var(--bg); }
 .bornes { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--faint); }
+
+/* Pied de page */
+.pied { padding: 20px 16px 8px; text-align: center; font-size: 12px; }
+.pied a { color: var(--muted); }
+.legal { padding: 8px 16px 24px; display: flex; flex-direction: column; gap: 14px; font-size: 14px; line-height: 1.5; }
+.legal h2 { margin: 6px 0 0; font-size: 16px; }
+.legal p { margin: 0; color: var(--muted); }

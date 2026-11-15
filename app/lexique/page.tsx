@@ -1,7 +1,11 @@
 import Shell from "@/components/Shell";
 import { LexiqueContenu } from "@/components/Lexique";
 
-export const metadata = { title: "Les parties d'un champignon" };
+export const metadata = {
+  title: "Vocabulaire des champignons : chapeau, lames, volve",
+  description: "Les parties d'un champignon expliquées simplement : chapeau, lames, tubes, anneau, volve… Le vocabulaire utilisé dans les fiches.",
+  alternates: { canonical: "/lexique" },
+};
 
 export default function Lexique() {
   return (

@@ -1,9 +1,13 @@
 import "./globals.css";
 import type { ReactNode } from "react";
+import { SIGNATURE, SITE } from "@/lib/seo";
 
 export const metadata = {
-  title: "Champignons — prototype",
-  description: "Prototype : espèces, fiches, carte de démonstration et quiz.",
+  metadataBase: new URL(SITE),
+  title: { default: SIGNATURE, template: "%s | Lamelle" },
+  description: "Fiches des champignons de France, comestibles, à éviter ou toxiques, carte des zones de pousse et quiz de reconnaissance.",
+  applicationName: "Lamelle",
+  openGraph: { siteName: "Lamelle", locale: "fr_FR", type: "website" },
 };
 
 export const viewport = { width: "device-width", initialScale: 1, themeColor: "#121815" };
