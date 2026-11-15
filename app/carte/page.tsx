@@ -124,6 +124,15 @@ export default function Carte() {
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
       map.on("load", () => {
         carte.current = map!; setPret(true);
+        // Position réelle à l'ouverture (le navigateur demande l'autorisation) ; sinon la vue par défaut reste
+        navigator.geolocation?.getCurrentPosition(
+          ({ coords: { longitude: lon, latitude: lat } }) => {
+            const [x0, y0, x1, y1] = FRANCE;
+            if (!annule && lon >= x0 && lon <= x1 && lat >= y0 && lat <= y1) map!.jumpTo({ center: [lon, lat], zoom: 11 });
+          },
+          () => { /* refus ou position indisponible */ },
+          { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 },
+        );
         // Crédits repliés à l'ouverture : un clic sur (i) les affiche
         const a = boite.current?.querySelector(".maplibregl-ctrl-attrib");
         a?.classList.remove("maplibregl-compact-show");
